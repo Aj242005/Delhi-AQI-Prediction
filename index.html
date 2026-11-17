@@ -2251,7 +2251,10 @@ function renderForecast(d) {
         $('hero-context').textContent = `Recorded line · ${d.reading_time || '2023 test set'} · not today’s air`;
         document.title = `Replay ${fmtInt(d.current_aqi)} → ${fmtInt(d.pred_24h)} AQI · Anand Vihar`;
     } else {
-        setSource('live', 'Live sensor', 'DPCC Anand Vihar, latest hour', `${d.reading_time || 'Latest reading'} · WAQI feed`);
+        const win = d.window && d.window.cams
+            ? ` · window: ${d.window.measured} measured + ${d.window.cams} CAMS`
+            : '';
+        setSource('live', 'Live sensor', 'DPCC Anand Vihar, latest hour', `${d.reading_time || 'Latest reading'} · WAQI feed${win}`);
         $('hero-context').textContent = `Live line · latest hourly reading ${d.reading_time || ''}`.trim();
         document.title = `${fmtInt(d.current_aqi)} → ${fmtInt(d.pred_24h)} AQI · Anand Vihar`;
     }

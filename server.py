@@ -398,8 +398,9 @@ def _not_ready_payload(state, profile):
         level, headline = "collecting", "Forecast warming up"
         banner = ("⏳ COLLECTING LIVE GROUND READINGS: %d of %d hours saved. The forecast unlocks once %d hours "
                   "are saved; until then only the current reading is shown." % (have, need, need))
-        note = ("The model needs the last 48 hours of real sensor readings. Keep the server running - "
-                "it saves one reading per hour.")
+        note = ("The model needs the last 48 hours of readings. Keep the server running - it saves one "
+                "reading per hour - and the hours it missed are filled from CAMS reanalysis whenever "
+                "that service is reachable.")
 
     show_cur = reason in ("collecting", "gaps") and latest is not None
     if show_cur:
@@ -449,11 +450,14 @@ def predict_aqi(
 
     if mode == "live_ground":
         log_df = ground_feed.load_log()
-        state = ground_feed.build_window(log_df, ground_feed.now_ist())
+        # Hours the local feed never recorded are completed from CAMS reanalysis.
+        seed_df = ground_feed.refresh_seed()
+        state = ground_feed.build_window(log_df, ground_feed.now_ist(), seed_df=seed_df)
         if not state["ready"]:
             return JSONResponse(_not_ready_payload(state, profile))
 
         df_past = state["df_past"]
+        window_info = {"measured": state["have"], "cams": state["n_seeded"], "hours": state["need"]}
         source_warning_level = "live_ground"
         reading_time_str = df_past["Datetime"].iloc[-1].strftime("%d %b %Y, %H:%M IST")
         notes = []
@@ -461,11 +465,16 @@ def predict_aqi(
             notes.append("%d missing hour(s) filled with a straight line" % state["n_interpolated"])
         if state["weather_filled"]:
             notes.append("weather was unavailable, typical values used")
+        if state["n_seeded"]:
+            window_line = ("%d of the %d hours are CAMS air-quality data because the local feed only held %d measured "
+                           "hours, so the early part of the window is modelled, not measured"
+                           % (state["n_seeded"], state["need"], state["have"]))
+        else:
+            window_line = "all %d hours are real sensor readings saved by this server" % state["need"]
         data_source_banner = (
             "🟢 LIVE GROUND SENSOR: DPCC Anand Vihar via WAQI, reading of " + reading_time_str + ". "
-            "The model is fed this latest hourly reading (it was trained on hourly values); the previous 48 hours "
-            "are real sensor readings saved by this server. Unvalidated live data - can differ a little from "
-            "CPCB's official bulletin."
+            "The model is fed this latest hourly reading (it was trained on hourly values); " + window_line + ". "
+            "Unvalidated live data - can differ a little from CPCB's official bulletin."
             + ((" Notes: " + "; ".join(notes) + ".") if notes else "")
         )
 
@@ -483,6 +492,8 @@ def predict_aqi(
             parts.append(f"PM2.5 {float(pm25_v):.0f} µg/m³")
         if pm10_v is not None and not pd.isna(pm10_v):
             parts.append(f"PM10 {float(pm10_v):.0f} µg/m³")
+        if state["n_seeded"]:
+            parts.append(f"window: {state['have']} measured + {state['n_seeded']} CAMS")
         dual_sub = " • ".join(parts)
     else:
         mode = "archive_2023"
@@ -496,6 +507,7 @@ def predict_aqi(
         df_past = df_2023.iloc[safe_idx - 48: safe_idx + 1][["Datetime", "AQI", "Temp_C", "Humidity", "Wind_Speed"]].reset_index(drop=True)
         hist_dt_str = df_past["Datetime"].iloc[-1].strftime("%d %b %Y, %H:%M IST")
         replay_label = f"REPLAY · {hist_dt_str}"
+        window_info = {"measured": ground_feed.WINDOW_HOURS, "cams": 0, "hours": ground_feed.WINDOW_HOURS}
         source_warning_level = "replay"
         data_source_banner = (
             f"🕘 REPLAY - NOT LIVE: a recorded DPCC Anand Vihar reading from {hist_dt_str} (2023 test set), "
@@ -608,6 +620,7 @@ def predict_aqi(
         "forecast_available": True,
         "is_replay": bool(replay_label),
         "replay_label": replay_label,
+        "window": window_info,
         "reading_time": reading_time_str or current_dt.strftime("%d %b %Y, %H:%M IST"),
         "current_time_iso": current_dt.isoformat(),
         "current_aqi": round(current_aqi),
@@ -658,7 +671,7 @@ def forecast_scorecard(days: int = Query(7, ge=1, le=90)):
 @app.get("/api/live_status")
 def live_status():
     """Quick health check for the live feed - open http://127.0.0.1:8000/api/live_status"""
-    return JSONResponse(ground_feed.status(WAQI_TOKEN))
+    return JSONResponse(ground_feed.status(WAQI_TOKEN, seed_df=ground_feed.refresh_seed()))
 
 
 @app.get("/health")
@@ -673,6 +686,7 @@ def health():
         "trained_at_utc": metadata.get("trained_at_utc"),
         "training_data_end": metadata.get("data_end"),
         "live_training_rows": (metadata.get("live_data") or {}).get("rows"),
+        "reanalysis_seed_hours": int(len(ground_feed.load_seed())),
         "forecast_log_rows": int(len(scorecard.load())),
     })
 

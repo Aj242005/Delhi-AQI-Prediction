@@ -15,11 +15,13 @@ sys.path.insert(0, BASE_DIR)
 os.environ.setdefault("WAQI_TOKEN", "")
 os.environ.setdefault("RETRAIN_AUTO", "0")
 
+import shutil
 import threading
 
 import numpy as np
 import pandas as pd
 
+import ground_feed
 import scorecard
 
 
@@ -269,3 +271,90 @@ class LiveSegmentation(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SeededWindow(unittest.TestCase):
+    """The 48-hour history can be completed from CAMS reanalysis without
+    pretending those hours were measured at the station."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+
+    @staticmethod
+    def station():
+        # Two saved hours with the 00:00 slot never recorded, as on a fresh install.
+        idx = pd.to_datetime(["2026-11-17 23:00", "2026-11-18 01:00"])
+        return pd.DataFrame({"Datetime": idx, "AQI": [180.0, 274.0],
+                             "Temp_C": [17.0, 18.0], "Humidity": [70.0, 71.0],
+                             "Wind_Speed": [3.0, 2.7]})
+
+    @staticmethod
+    def seed(end="2026-11-18 01:00", hours=49):
+        idx = pd.date_range(end=end, periods=hours, freq="h")
+        return pd.DataFrame({"Datetime": idx,
+                             "seed_aqi": [250.0 + i for i in range(hours)],
+                             "Temp_C": 18.0, "Humidity": 70.0, "Wind_Speed": 3.0})
+
+    def test_reanalysis_completes_the_window(self):
+        w = ground_feed.build_window(self.station(), now=pd.Timestamp("2026-11-18 01:30"),
+                                     seed_df=self.seed())
+        self.assertTrue(w["ready"])
+        self.assertEqual(w["have"], 2)
+        self.assertEqual(w["n_seeded"], 47)
+        self.assertEqual(len(w["df_past"]), 49)
+        self.assertEqual(float(w["df_past"]["AQI"].iloc[-1]), 274.0)
+        self.assertEqual(float(w["df_past"]["AQI"].iloc[0]), 250.0)
+
+    def test_measured_readings_win_over_reanalysis(self):
+        seed = self.seed()
+        seed.loc[seed["Datetime"] == pd.Timestamp("2026-11-18 01:00"), "seed_aqi"] = 999.0
+        w = ground_feed.build_window(self.station(), now=pd.Timestamp("2026-11-18 01:30"), seed_df=seed)
+        self.assertEqual(float(w["df_past"]["AQI"].iloc[-1]), 274.0)
+
+    def test_no_seed_still_collects(self):
+        w = ground_feed.build_window(self.station(), now=pd.Timestamp("2026-11-18 01:30"))
+        self.assertFalse(w["ready"])
+        self.assertEqual(w["reason"], "collecting")
+        self.assertEqual(w["n_seeded"], 0)
+
+    def test_incomplete_seed_is_not_enough(self):
+        w = ground_feed.build_window(self.station(), now=pd.Timestamp("2026-11-18 01:30"),
+                                     seed_df=self.seed(end="2026-11-17 12:00"))
+        self.assertFalse(w["ready"])
+        self.assertEqual(w["reason"], "collecting")
+
+    def test_seed_cache_is_written_and_reused(self):
+        path = os.path.join(self.tmp, "seed.csv")
+        calls = {"air": 0, "wx": 0}
+
+        def air():
+            calls["air"] += 1
+            return self.seed()[["Datetime", "seed_aqi"]].assign(seed_pm25=90.0, seed_pm10=300.0)
+
+        def wx():
+            calls["wx"] += 1
+            return self.seed()[["Datetime"]].assign(Temp_C=18.0, Humidity=70.0, Wind_Speed=3.0)
+
+        first = ground_feed.refresh_seed(path, now=pd.Timestamp("2026-11-18 01:30"),
+                                         air_fetch=air, weather_fetch=wx)
+        second = ground_feed.refresh_seed(path, now=pd.Timestamp("2026-11-18 01:40"),
+                                          air_fetch=air, weather_fetch=wx)
+        self.assertEqual(len(first), 49)
+        self.assertEqual(len(second), 49)
+        self.assertEqual(calls, {"air": 1, "wx": 1})
+
+    def test_seed_refetches_once_stale(self):
+        path = os.path.join(self.tmp, "seed.csv")
+        calls = {"n": 0}
+
+        def air():
+            calls["n"] += 1
+            return self.seed()[["Datetime", "seed_aqi"]].assign(seed_pm25=90.0, seed_pm10=300.0)
+
+        def wx():
+            return self.seed()[["Datetime"]].assign(Temp_C=18.0, Humidity=70.0, Wind_Speed=3.0)
+
+        ground_feed.refresh_seed(path, now=pd.Timestamp("2026-11-18 01:30"), air_fetch=air, weather_fetch=wx)
+        ground_feed.refresh_seed(path, now=pd.Timestamp("2026-11-18 04:00"), air_fetch=air, weather_fetch=wx)
+        self.assertEqual(calls["n"], 2)

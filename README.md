@@ -85,6 +85,11 @@ Once ready, every new hourly reading moves the 49-hour input window forward by o
 
 Without a token the UI automatically starts in **Replay** mode, so the full forecast and advisory flow can still be demonstrated.
 
+### Filling the first two days of live history
+A fresh install starts with an empty history: the server can only save the hours it was running, so the model would need 49 hours before drawing anything. Hours the local feed never saw are completed from Open-Meteo's **CAMS** air-quality service (hourly PM2.5/PM10 for the Anand Vihar grid point, converted with the same CPCB formula, plus the matching temperature, humidity and wind). Those hours are cached in `Live/reanalysis_seed.csv` for an hour at a time and kept out of `Live/ground_log.csv`, so the station log stays pure measured readings.
+
+Measured hours always win: CAMS only fills a slot the ground log does not have. The board says how the window was assembled (`window: 2 measured + 47 CAMS`) and the source banner spells it out, because a window that is mostly modelled is not the same evidence as one built from two days of station readings. The newest reading must still be a real station reading no more than three hours old, so a dead feed still pauses the forecast instead of hiding behind the model.
+
 ### Forecast scorecard
 Every live forecast the API issues is written to `Live/forecast_log.csv`: one row per target hour and horizon, stored the first time that target is served, so the row keeps its true lead time (the +4h row really was issued four hours early). When the hour arrives in `Live/ground_log.csv`, `scorecard.py` joins the two and the control room shows:
 

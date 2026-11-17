@@ -69,6 +69,17 @@ MAX_INTERP_GAP = 3       # fill up to 3 missing hours in a row (straight line)
 MAX_STALE_HOURS = 3      # newest reading older than this = feed not updating
 POLL_SECONDS = 5 * 60
 
+# The local log only has the hours this server was running.  Hours the feed
+# never saw are filled from Open-Meteo's CAMS air-quality reanalysis, which
+# publishes hourly PM2.5/PM10 (and weather) for this grid point.  They are
+# modelled, not measured, so they live in their own file and are reported
+# separately - Live/ground_log.csv stays pure station readings.
+SEED_PATH = os.path.join(_BASE, "Live", "reanalysis_seed.csv")
+SEED_PAST_DAYS = 3
+SEED_MAX_AGE_MIN = 60
+SEED_COLUMNS = ["Datetime", "seed_aqi", "seed_pm25", "seed_pm10",
+                "Temp_C", "Humidity", "Wind_Speed", "fetched_utc"]
+
 # Used only if no weather could be fetched at all (training-set averages).
 WEATHER_DEFAULTS = {"Temp_C": 24.0, "Humidity": 65.0, "Wind_Speed": 9.3}
 
@@ -192,6 +203,83 @@ def fetch_open_meteo_current(timeout=10):
     cur = _get_json(url, timeout)["current"]
     return {"Temp_C": cur.get("temperature_2m"), "Humidity": cur.get("relative_humidity_2m"),
             "Wind_Speed": cur.get("wind_speed_10m")}   # km/h, same unit as the training data
+
+
+def fetch_open_meteo_air_history(past_days=SEED_PAST_DAYS, timeout=20):
+    """Hourly CAMS PM2.5/PM10 for this grid point, converted to CPCB AQI."""
+    url = ("https://air-quality-api.open-meteo.com/v1/air-quality"
+           "?latitude=%s&longitude=%s&hourly=pm2_5,pm10&past_days=%d&forecast_days=1"
+           "&timezone=Asia%%2FKolkata" % (LAT, LON, past_days))
+    h = _get_json(url, timeout)["hourly"]
+    rows = []
+    for t, p25, p10 in zip(h.get("time") or [], h.get("pm2_5") or [], h.get("pm10") or []):
+        if p25 is None and p10 is None:
+            continue
+        rows.append({"Datetime": pd.Timestamp(t), "seed_pm25": p25, "seed_pm10": p10,
+                     "seed_aqi": cpcb_aqi_from_pm(p25, p10)})
+    return pd.DataFrame(rows, columns=["Datetime", "seed_aqi", "seed_pm25", "seed_pm10"])
+
+
+def fetch_open_meteo_weather_history(past_days=SEED_PAST_DAYS, timeout=20):
+    """Hourly weather for the same hours, so seeded rows carry real conditions."""
+    url = ("https://api.open-meteo.com/v1/forecast"
+           "?latitude=%s&longitude=%s&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m"
+           "&past_days=%d&forecast_days=1&timezone=Asia%%2FKolkata" % (LAT, LON, past_days))
+    h = _get_json(url, timeout)["hourly"]
+    return pd.DataFrame({"Datetime": pd.to_datetime(h["time"]),
+                         "Temp_C": h["temperature_2m"],
+                         "Humidity": h["relative_humidity_2m"],
+                         "Wind_Speed": h["wind_speed_10m"]})
+
+
+def load_seed(path=None):
+    """The cached reanalysis hours (no network)."""
+    path = path or SEED_PATH
+    if not os.path.exists(path):
+        return pd.DataFrame(columns=SEED_COLUMNS)
+    try:
+        df = pd.read_csv(path, parse_dates=["Datetime"])
+    except Exception as exc:  # a broken cache must never stop a forecast
+        logger.warning("Could not read the reanalysis seed %s: %s", path, exc)
+        return pd.DataFrame(columns=SEED_COLUMNS)
+    if "seed_aqi" not in df.columns:
+        return pd.DataFrame(columns=SEED_COLUMNS)
+    df["seed_aqi"] = pd.to_numeric(df["seed_aqi"], errors="coerce")
+    df = df.dropna(subset=["Datetime", "seed_aqi"])
+    return df.drop_duplicates("Datetime", keep="last").sort_values("Datetime").reset_index(drop=True)
+
+
+def refresh_seed(path=None, force=False, now=None, max_age_minutes=SEED_MAX_AGE_MIN,
+                 air_fetch=None, weather_fetch=None):
+    """Reanalysis hours, refetched only when the cached copy has gone stale."""
+    path = path or SEED_PATH
+    cached = load_seed(path)
+    now = now if now is not None else now_ist()
+    if not force and len(cached):
+        try:
+            fetched = pd.to_datetime(cached["fetched_utc"], errors="coerce").max()
+            if pd.notna(fetched) and (now - fetched) < pd.Timedelta(minutes=max_age_minutes):
+                return cached
+        except Exception:
+            pass
+    try:
+        air_df = (air_fetch or fetch_open_meteo_air_history)()
+        wx_df = (weather_fetch or fetch_open_meteo_weather_history)()
+    except Exception as exc:
+        logger.warning("Reanalysis seed unavailable (%s) - using the cached hours", exc)
+        return cached
+    if air_df is None or air_df.empty:
+        return cached
+    merged = air_df.merge(wx_df, on="Datetime", how="left")
+    merged["fetched_utc"] = now.strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        tmp = path + ".tmp"
+        merged.to_csv(tmp, index=False)
+        os.replace(tmp, path)
+    except OSError as exc:
+        logger.warning("Could not save the reanalysis seed: %s", exc)
+    return load_seed(path)
 
 
 def parse_waqi(data, scheme=None):
@@ -349,7 +437,8 @@ def now_ist():
     return pd.Timestamp.now(tz="Asia/Kolkata").tz_localize(None)
 
 
-def build_window(log_df, now=None, need=WINDOW_HOURS, max_gap=MAX_INTERP_GAP, max_stale=MAX_STALE_HOURS):
+def build_window(log_df, now=None, need=WINDOW_HOURS, max_gap=MAX_INTERP_GAP,
+                 max_stale=MAX_STALE_HOURS, seed_df=None):
     """
     Returns a dict. ready=True means df_past (49 hourly rows) can go straight
     into the forecaster. Otherwise `reason` says why not:
@@ -357,11 +446,15 @@ def build_window(log_df, now=None, need=WINDOW_HOURS, max_gap=MAX_INTERP_GAP, ma
       stale      - newest reading is older than max_stale hours
       collecting - fewer than `need` hours saved so far
       gaps       - enough time has passed but too many hours are missing
+
+    Hours with no station reading are filled from `seed_df` (CAMS reanalysis)
+    when it covers them.  `have` always counts measured hours only, `n_seeded`
+    counts the reanalysis hours that stand in for the rest.
     """
     now = now if now is not None else now_ist()
     out = {"ready": False, "reason": "no_data", "have": 0, "need": need, "latest": None,
            "latest_row": None, "age_hours": None, "df_past": None, "n_interpolated": 0,
-           "weather_filled": False}
+           "n_seeded": 0, "weather_filled": False}
     if log_df is None or len(log_df) == 0:
         return out
 
@@ -369,27 +462,35 @@ def build_window(log_df, now=None, need=WINDOW_HOURS, max_gap=MAX_INTERP_GAP, ma
     latest_row = log_df.loc[log_df["Datetime"].idxmax()]
     age = (now - latest) / pd.Timedelta(hours=1)
     out.update(latest=latest, latest_row=latest_row, age_hours=float(age))
+    if age > max_stale:
+        out["reason"] = "stale"
+        return out
 
     idx = pd.date_range(end=latest, periods=need, freq="h")
     s = log_df.set_index("Datetime").reindex(idx)
     out["have"] = int(s["AQI"].notna().sum())
-
     span_hours = int((latest - log_df["Datetime"].min()) / pd.Timedelta(hours=1)) + 1
-    if age > max_stale:
-        out["reason"] = "stale"
-        return out
-    if span_hours < need:
-        out["reason"] = "collecting"
-        return out
+
+    wx_cols = ["Temp_C", "Humidity", "Wind_Speed"]
+    if seed_df is not None and len(seed_df):
+        seed = seed_df.set_index("Datetime").reindex(idx)
+        gap = s["AQI"].isna() & seed["seed_aqi"].notna()
+        if gap.any():
+            s.loc[gap, "AQI"] = seed.loc[gap, "seed_aqi"]
+            out["n_seeded"] = int(gap.sum())
+        for c in wx_cols:
+            if c in seed:
+                missing = s[c].isna() & seed[c].notna()
+                if missing.any():
+                    s.loc[missing, c] = seed.loc[missing, c]
 
     before = int(s["AQI"].isna().sum())
     s["AQI"] = pd.to_numeric(s["AQI"], errors="coerce").interpolate(limit=max_gap, limit_area="inside")
     if s["AQI"].isna().any():
-        out["reason"] = "gaps"
+        out["reason"] = "collecting" if span_hours < need else "gaps"
         return out
     out["n_interpolated"] = before
 
-    wx_cols = ["Temp_C", "Humidity", "Wind_Speed"]
     for c in wx_cols:
         s[c] = pd.to_numeric(s[c], errors="coerce").ffill(limit=6).bfill(limit=6)
     if s[wx_cols].isna().any().any():
@@ -415,13 +516,14 @@ def avg_24h(log_df, latest, min_hours=16):
     return float(w["AQI"].mean()), n
 
 
-def status(token, log_path=None, now=None):
+def status(token, log_path=None, now=None, seed_df=None):
     """Small summary used by /api/live_status."""
     df = load_log(log_path)
-    w = build_window(df, now)
+    w = build_window(df, now, seed_df=seed_df)
     return {
         "token_set": has_token(token), "pm25_scheme": PM25_SCHEME,
         "rows_saved": int(len(df)), "hours_in_window": w["have"], "hours_needed": w["need"],
+        "seeded_hours": w["n_seeded"],
         "latest_reading": None if w["latest"] is None else str(w["latest"]),
         "age_hours": None if w["age_hours"] is None else round(w["age_hours"], 1),
         "forecast_ready": w["ready"], "reason": w["reason"], "last_poll": LAST_POLL,
