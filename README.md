@@ -12,7 +12,10 @@ The project is built for real-world civic impact, aligning with e-governance the
 * **Personalized Health Advisory Layer:** A rules engine that maps predicted AQI bands to specific demographic and health profiles.
 * **Actionable Insights:** Concrete guidance such as masks, ventilation windows, outdoor-activity limits, and severe-day risk.
 * **Calibrated Uncertainty:** 2022-calibrated residual intervals, isotonic-calibrated severe-day probabilities, and a 2023 test-set audit shown in the UI.
+* **Forecast Scorecard:** every live forecast is logged at its target hour and graded once that hour is real, so rolling error, interval coverage, Brier score and skill against persistence reflect today rather than 2023.
 * **Two Data Modes:** Real live ground-sensor readings (WAQI/DPCC Anand Vihar) or a recorded 2023 replay that works offline.
+* **Commute Planner:** the six horizon points are reused to find the cleanest departure window for a 30-minute to 2-hour trip.
+* **Likely Driver:** a labelled heuristic that names the usual suspect (night inversion, smoke, traffic, dust) from wind, hour, season and the fine/coarse particle split.
 
 ## Data Strategy & Sources
 The pipeline is split into historical training data and live inference data:
@@ -28,7 +31,9 @@ server.py                 FastAPI backend, model loading, health-advisory engine
 index.html                Single-page frontend (served by server.py)
 ground_feed.py            Live WAQI polling, unit conversion, 49-hour window builder
 ground_logger.py          Optional stand-alone live logger / diagnostics
+scorecard.py              Forecast log + rolling scoring against saved live hours
 retrain.py                Occasionally refit the models on timestamped live data
+tests/                    Contract tests (payload, scorecard, retrain rules)
 build_dataset.py          Reproducible data pipeline (raw table -> ml_ready_data.csv)
 Dataset/                  Raw AQI table, cached weather, model-ready features
 Models/                   Native XGBoost JSON models + model_metadata.json
@@ -80,6 +85,24 @@ Once ready, every new hourly reading moves the 49-hour input window forward by o
 
 Without a token the UI automatically starts in **Replay** mode, so the full forecast and advisory flow can still be demonstrated.
 
+### Forecast scorecard
+Every live forecast the API issues is written to `Live/forecast_log.csv`: one row per target hour and horizon, stored the first time that target is served, so the row keeps its true lead time (the +4h row really was issued four hours early). When the hour arrives in `Live/ground_log.csv`, `scorecard.py` joins the two and the control room shows:
+
+* rolling MAE, RMSE and bias per horizon over the last 7 days,
+* skill against 24-hour persistence (holding the issue-hour reading flat),
+* how often the actual reading landed inside the 80% interval,
+* the Brier score and a reliability strip for the severe-day probability,
+* how many forecast hours are still waiting for their reading,
+* live-vs-training drift (mean and z-score for AQI, temperature, humidity, wind).
+
+Replay forecasts are never logged, because recorded 2023 hours can never be graded against today's sensor. Nothing leaves the two CSV files; `Live/` is gitignored.
+
+Run the tests with:
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
 ### Retraining on live data
 Every saved live reading carries its own timestamp in `Live/ground_log.csv`, so the live record can be folded back into training without guessing when a row was captured.
 
@@ -111,6 +134,7 @@ Candidate and backup folders are local and ignored by git. The promoted `model_m
 | --- | --- |
 | `GET /api/predict?mode=live_ground&profile=Asthma%20Patient` | Live forecast + advisory |
 | `GET /api/predict?mode=archive_2023&archive_idx=7400&profile=Child%20(Under%2012)` | Replay forecast from a recorded 2023 window |
+| `GET /api/scorecard?days=7` | Rolling accuracy of the forecasts actually issued, plus live-vs-training drift |
 | `GET /api/live_status` | Token status, saved rows, window readiness, last poll |
 | `GET /health` | Liveness + model/dataset status |
 | `POST /api/reload_models` | Reload promoted model files without restarting the server |

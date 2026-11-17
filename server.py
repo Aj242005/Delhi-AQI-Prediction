@@ -16,6 +16,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 import ground_feed  # live ground-sensor feed (ground_feed.py)
+import scorecard  # forecast scorecard (scorecard.py)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -86,6 +87,72 @@ def format_chance_phrase(cal_prob_pct, pred_24h, is_triggered):
         return f"Low severe-day risk, {chance}"
     else:
         return f"Unlikely severe day (<10% chance; {p:.1f}%)"
+
+
+def likely_driver(aqi, wind, hour, month, pm25=None, pm10=None):
+    """Heuristic only: what usually explains an hour like this at Anand Vihar.
+
+    Nothing here is measured source apportionment; it reads the wind, the clock,
+    the season and the coarse/fine particle split and names the usual suspect.
+    """
+    fine_share = None
+    try:
+        if pm25 is not None and pm10 is not None and float(pm10) > 0 and not pd.isna(pm10):
+            fine_share = float(pm25) / float(pm10)
+    except (TypeError, ValueError):
+        fine_share = None
+    still = wind is not None and not pd.isna(wind) and float(wind) < 8
+    rush = hour in (8, 9, 10, 11, 18, 19, 20, 21)
+    winter = month in (10, 11, 12, 1)
+
+    if aqi >= 200 and still and (hour >= 21 or hour <= 7):
+        return {"label": "Night inversion",
+                "detail": "Still, cool air under a shallow boundary layer is holding particles near the ground."}
+    if winter and aqi >= 250 and fine_share is not None and fine_share >= 0.55:
+        return {"label": "Smoke, likely stubble and local burning",
+                "detail": "Fine particles dominate; from October to January that points to crop-residue and waste burning."}
+    if rush and aqi >= 150:
+        return {"label": "Traffic build-up",
+                "detail": "The reading lands in a commute peak, when vehicle exhaust and road dust stack up."}
+    if wind is not None and not pd.isna(wind) and float(wind) >= 18:
+        return {"label": "Wind-driven dust",
+                "detail": "Stronger wind is lifting coarse dust, so PM10 usually leads this hour."}
+    if aqi >= 200:
+        return {"label": "Regional accumulation",
+                "detail": "Slow dispersion over the Indo-Gangetic plain is letting pollution build up."}
+    return {"label": "Mixed sources",
+            "detail": "No single driver stands out at this hour."}
+
+
+def drift_summary(days=7):
+    """Compare the last few days of live readings with the training distribution."""
+    if df_hist is None or df_hist.empty:
+        return {"available": False, "note": "Replay dataset is missing, so there is no training baseline."}
+    log_df = ground_feed.load_log()
+    have = 0 if log_df is None else int(len(log_df))
+    if have < 24:
+        return {"available": False, "note": f"Needs 24 saved live hours ({have} so far)."}
+
+    latest = log_df["Datetime"].max()
+    live = log_df[log_df["Datetime"] > latest - pd.Timedelta(days=days)]
+    out = {"available": True, "hours": int(len(live)), "window_days": int(days), "vars": []}
+    for col, label in (("AQI", "AQI"), ("Temp_C", "Temperature (°C)"),
+                       ("Humidity", "Humidity (%)"), ("Wind_Speed", "Wind (km/h)")):
+        train = pd.to_numeric(df_hist[col], errors="coerce").dropna()
+        now = pd.to_numeric(live[col], errors="coerce").dropna()
+        if len(train) < 100 or not len(now):
+            continue
+        live_mean = float(now.mean())
+        train_mean, train_std = float(train.mean()), float(train.std())
+        z = None if train_std == 0 else (live_mean - train_mean) / train_std
+        out["vars"].append({
+            "label": label,
+            "live_mean": round(live_mean, 1),
+            "train_mean": round(train_mean, 1),
+            "z": None if z is None else round(z, 2),
+            "in_range": bool(train.min() <= live_mean <= train.max()),
+        })
+    return out
 
 # ---------------------------------------------------------
 # 2. LOAD NATIVE XGBOOST JSON MODELS & METADATA
@@ -378,6 +445,7 @@ def predict_aqi(
     replay_label = ""
     reading_time_str = ""
     dual_sub = ""
+    pm25_v = pm10_v = None
 
     if mode == "live_ground":
         log_df = ground_feed.load_log()
@@ -521,6 +589,17 @@ def predict_aqi(
     cur_cat, cur_col, headline = get_cpcb_meta(current_aqi)
     pred_cat, pred_col, _ = get_cpcb_meta(pred_24h)
     adv = get_health_advisory(max(pred_24h, peak_24h), profile)
+    driver = likely_driver(max(pred_24h, peak_24h), feat_dict["Wind_Speed"],
+                           int(current_dt.hour), int(current_dt.month), pm25_v, pm10_v)
+
+    if mode == "live_ground":
+        try:
+            scorecard.log_issue(wave_points, base_aqi=round(current_aqi),
+                                pi_low=pi80_low, pi_high=pi80_high,
+                                severe_pct=severe_prob_pct,
+                                trained_at=meta.get("trained_at_utc", ""))
+        except Exception as exc:  # never let bookkeeping break a forecast
+            logger.warning("Could not record this forecast: %s", exc)
 
     return JSONResponse({
         "source_warning_level": source_warning_level,
@@ -560,9 +639,20 @@ def predict_aqi(
         "humidity": round(feat_dict["Humidity"]),
         "wind": round(feat_dict["Wind_Speed"], 1),
         "advisory": adv,
+        "driver": driver,
+        "pm25": None if pm25_v is None or pd.isna(pm25_v) else round(float(pm25_v)),
+        "pm10": None if pm10_v is None or pd.isna(pm10_v) else round(float(pm10_v)),
         "wave": wave_points,
         "metadata": meta
     })
+
+
+@app.get("/api/scorecard")
+def forecast_scorecard(days: int = Query(7, ge=1, le=90)):
+    """Rolling accuracy of the live forecasts actually issued, plus live-vs-training drift."""
+    payload = scorecard.score(days=days)
+    payload["drift"] = drift_summary(days)
+    return JSONResponse(payload)
 
 
 @app.get("/api/live_status")
@@ -583,6 +673,7 @@ def health():
         "trained_at_utc": metadata.get("trained_at_utc"),
         "training_data_end": metadata.get("data_end"),
         "live_training_rows": (metadata.get("live_data") or {}).get("rows"),
+        "forecast_log_rows": int(len(scorecard.load())),
     })
 
 
