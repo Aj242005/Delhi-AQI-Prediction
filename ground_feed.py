@@ -442,7 +442,7 @@ def build_window(log_df, now=None, need=WINDOW_HOURS, max_gap=MAX_INTERP_GAP,
     """
     Returns a dict. ready=True means df_past (49 hourly rows) can go straight
     into the forecaster. Otherwise `reason` says why not:
-      no_data    - nothing logged yet
+      no_data    - nothing logged yet and no reanalysis hours either
       stale      - newest reading is older than max_stale hours
       collecting - fewer than `need` hours saved so far
       gaps       - enough time has passed but too many hours are missing
@@ -455,11 +455,22 @@ def build_window(log_df, now=None, need=WINDOW_HOURS, max_gap=MAX_INTERP_GAP,
     out = {"ready": False, "reason": "no_data", "have": 0, "need": need, "latest": None,
            "latest_row": None, "age_hours": None, "df_past": None, "n_interpolated": 0,
            "n_seeded": 0, "weather_filled": False}
-    if log_df is None or len(log_df) == 0:
-        return out
+    has_measured = log_df is not None and len(log_df) > 0
 
-    latest = log_df["Datetime"].max()
-    latest_row = log_df.loc[log_df["Datetime"].idxmax()]
+    # The window ends at the newest measured hour.  On a fresh install there is
+    # none yet, so it ends at the newest reanalysis hour that has already
+    # happened - the API's past days are enough to forecast immediately.
+    if has_measured:
+        latest = log_df["Datetime"].max()
+        latest_row = log_df.loc[log_df["Datetime"].idxmax()]
+    else:
+        done = (seed_df[seed_df["Datetime"] <= now.floor("h")]
+                if seed_df is not None and len(seed_df) else None)
+        if done is None or len(done) == 0:
+            return out
+        latest = done["Datetime"].max()
+        latest_row = done.loc[done["Datetime"].idxmax()].rename({"seed_aqi": "AQI"})
+
     age = (now - latest) / pd.Timedelta(hours=1)
     out.update(latest=latest, latest_row=latest_row, age_hours=float(age))
     if age > max_stale:
@@ -467,9 +478,13 @@ def build_window(log_df, now=None, need=WINDOW_HOURS, max_gap=MAX_INTERP_GAP,
         return out
 
     idx = pd.date_range(end=latest, periods=need, freq="h")
-    s = log_df.set_index("Datetime").reindex(idx)
-    out["have"] = int(s["AQI"].notna().sum())
-    span_hours = int((latest - log_df["Datetime"].min()) / pd.Timedelta(hours=1)) + 1
+    if has_measured:
+        s = log_df.set_index("Datetime").reindex(idx)
+        out["have"] = int(s["AQI"].notna().sum())
+    else:
+        s = pd.DataFrame(index=idx, columns=["AQI"] + ["Temp_C", "Humidity", "Wind_Speed"],
+                         dtype=float)
+    span_hours = int((latest - log_df["Datetime"].min()) / pd.Timedelta(hours=1)) + 1 if has_measured else 1
 
     wx_cols = ["Temp_C", "Humidity", "Wind_Speed"]
     if seed_df is not None and len(seed_df):

@@ -318,6 +318,21 @@ class SeededWindow(unittest.TestCase):
         self.assertEqual(w["reason"], "collecting")
         self.assertEqual(w["n_seeded"], 0)
 
+    def test_window_starts_from_reanalysis_with_no_readings(self):
+        w = ground_feed.build_window(pd.DataFrame(columns=["Datetime", "AQI"]),
+                                     now=pd.Timestamp("2026-11-18 01:30"), seed_df=self.seed())
+        self.assertTrue(w["ready"])
+        self.assertEqual(w["have"], 0)
+        self.assertEqual(w["n_seeded"], 49)
+        self.assertEqual(len(w["df_past"]), 49)
+        self.assertEqual(w["df_past"]["Datetime"].iloc[-1], pd.Timestamp("2026-11-18 01:00"))
+
+    def test_nothing_at_all_is_still_no_data(self):
+        w = ground_feed.build_window(pd.DataFrame(columns=["Datetime", "AQI"]),
+                                     now=pd.Timestamp("2026-11-18 01:30"))
+        self.assertFalse(w["ready"])
+        self.assertEqual(w["reason"], "no_data")
+
     def test_incomplete_seed_is_not_enough(self):
         w = ground_feed.build_window(self.station(), now=pd.Timestamp("2026-11-18 01:30"),
                                      seed_df=self.seed(end="2026-11-17 12:00"))
