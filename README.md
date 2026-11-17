@@ -81,12 +81,15 @@ Once ready, every new hourly reading moves the 49-hour input window forward by o
 Without a token the UI automatically starts in **Replay** mode, so the full forecast and advisory flow can still be demonstrated.
 
 ### Retraining on live data
-Every saved live reading carries its own timestamp in `Live/ground_log.csv`, so the live record can be folded back into training without guessing when a row was captured. The retraining tool is deliberately conservative:
+Every saved live reading carries its own timestamp in `Live/ground_log.csv`, so the live record can be folded back into training without guessing when a row was captured.
+
+It runs by itself while the server is up. A background thread calls `retrain.py --if-due` five minutes after startup and then every six hours, and swaps the promoted models and metadata into the running process, so nothing needs to be scheduled and the server does not restart. `RETRAIN_CHECK_HOURS=12` changes the interval and `RETRAIN_AUTO=0` turns the loop off.
+
+The tool is deliberately conservative, and manual runs still work:
 
 ```powershell
-python retrain.py --if-due          # run only when enough new live data exists
+python retrain.py --if-due          # what the server's auto-retrain calls
 python retrain.py --dry-run         # train and report, write nothing
-python retrain.py --no-promote      # write candidates, keep the live models
 python retrain.py --force-promote   # bypass the quality gate (not recommended)
 ```
 
@@ -97,13 +100,9 @@ python retrain.py --force-promote   # bypass the quality gate (not recommended)
 3. Validates on the next live slice and tests on the most recent live slice, with a 24-hour purge between slices.
 4. Calibrates the 80% interval and severe probability on live validation data.
 5. Promotes only if the candidate beats 24-hour persistence, keeps 80% interval coverage between 60% and 95%, and (when severe hours exist in the test slice) reaches at least 45% severe recall.
-6. Backs up the previous `Models/*.json`, writes the candidate under `Models/candidates/`, and calls `POST /api/reload_models` so a running server picks it up.
+6. Backs up the previous `Models/*.json`, writes the candidate under `Models/candidates/`, and tells a running server to reload (`POST /api/reload_models`); the auto-retrain loop also reloads in-process as soon as the metadata changes.
 
-The first meaningful retrain cannot happen until roughly a month of live readings exists; the forecast itself only needs 49 hourly rows. To run the check periodically, point Windows Task Scheduler (or cron) at:
-
-```powershell
-python retrain.py --if-due
-```
+The first meaningful retrain cannot happen until roughly a month of live readings exists; the forecast itself only needs 49 hourly rows. Because an idle check costs a few seconds, the server can keep asking until it is due.
 
 Candidate and backup folders are local and ignored by git. The promoted `model_metadata.json` records the live data range, sample weight, split labels, and gate result, so the UI evidence section describes the actual bundle in use.
 
@@ -145,4 +144,4 @@ Severe-day classifier (2023 test): recall 0.812, precision 0.512, F1 0.628. The 
 * Advisories are informational, not medical advice.
 
 ## Current Status
-The full pipeline is implemented end to end: reproducible dataset build, trained multi-horizon models, calibrated severe-day risk, FastAPI backend, live sensor logger, timestamped live retraining, replay mode, and the responsive advisory UI. The shipped models are still the 2023-trained bundle until enough live readings accumulate and a retrained candidate passes the promotion gate.
+The full pipeline is implemented end to end: reproducible dataset build, trained multi-horizon models, calibrated severe-day risk, FastAPI backend, live sensor logger, automatic timestamped live retraining, replay mode, and the responsive advisory UI. The shipped models are still the 2023-trained bundle until enough live readings accumulate and a retrained candidate passes the promotion gate.

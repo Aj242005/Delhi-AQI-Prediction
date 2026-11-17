@@ -9,9 +9,8 @@ candidate on a recent *live* holdout.  It never interpolates across the
 
 Typical use
 -----------
-    python retrain.py --if-due          # scheduled / occasional run
+    python retrain.py --if-due          # what the server's auto-retrain calls
     python retrain.py --dry-run         # train and report, write nothing
-    python retrain.py --no-promote      # write candidates, keep live models
     python retrain.py --force-promote   # bypass the quality gate (careful)
 
 What --if-due means
@@ -356,14 +355,14 @@ def severe_row(name, y_true, y_pred, split_name):
     }
 
 
-def calibrate_interval(val, val_pred_24, val_real_mask, q_low=10, q_high=90):
+def calibrate_interval(val, val_pred_24, val_real_mask):
     y = val.loc[val_real_mask, "Target_24h"].to_numpy(dtype=float)
     p = val_pred_24[val_real_mask]
     if len(y) < 2:
         raise ValueError("Not enough real validation rows to calibrate the interval.")
     return {
-        "q10_err": num(np.percentile(y - p, q_low), 2),
-        "q90_err": num(np.percentile(y - p, q_high), 2),
+        "q10_err": num(np.percentile(y - p, 10), 2),
+        "q90_err": num(np.percentile(y - p, 90), 2),
         "mae_val": num(mean_absolute_error(y, p), 2),
         "val_rows": int(len(y)),
     }
@@ -413,7 +412,7 @@ def tune_severe(train, val, args, live_weight, val_real_mask):
             X_train, y_train, w_train, args, args.seed, base_neg_pos * best["weight_mult"]
         )
 
-    return best, X_train, y_train, w_train
+    return best
 
 
 def reload_server(url):
@@ -443,8 +442,6 @@ def parse_args(argv=None):
     parser.add_argument("--if-due", action="store_true",
                         help="Only run when enough new live rows have accumulated since the last attempt.")
     parser.add_argument("--dry-run", action="store_true", help="Train and report, write nothing.")
-    parser.add_argument("--no-promote", action="store_true",
-                        help="Write candidates but keep the current live model files.")
     parser.add_argument("--force-promote", action="store_true",
                         help="Promote even if the quality gate fails (not recommended).")
     parser.add_argument("--min-live-rows", type=int, default=720,
@@ -466,8 +463,6 @@ def parse_args(argv=None):
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument("--reload-url", default="http://127.0.0.1:8000/api/reload_models",
                         help="Server endpoint to reload after promotion.")
-    parser.add_argument("--no-reload", action="store_true",
-                        help="Do not ask a running server to reload after promotion.")
     return parser.parse_args(argv)
 
 
@@ -639,9 +634,7 @@ def main(argv=None):
 
     # ---- severe classifier -------------------------------------------------
     print_header("TRAINING SEVERE-DAY CLASSIFIER")
-    severe_result, X_tr, y_tr, w_tr = tune_severe(
-        train, val, args, args.live_weight, val_real_mask
-    )
+    severe_result = tune_severe(train, val, args, args.live_weight, val_real_mask)
     severe_clf = severe_result["model"]
     val_eval = val.loc[val_real_mask].reset_index(drop=True)
     test_eval = test.loc[test_real_mask].reset_index(drop=True)
@@ -714,8 +707,6 @@ def main(argv=None):
     gate("all_horizons", len(models) == len(HORIZONS), f"{len(models)} of {len(HORIZONS)} horizon models")
     gate_passed = all(item["passed"] for item in gate_checks)
     promoted = gate_passed or args.force_promote
-    if args.no_promote:
-        promoted = False
 
     eval_label = f"live test ({range_label(test)})"
     val_label = f"live validation ({range_label(val)})"
@@ -726,13 +717,8 @@ def main(argv=None):
         "dataset_file": os.path.basename(args.history),
         "dataset_sha256": sha256_file(args.history),
         "live_log_file": os.path.basename(args.live_log),
-        "live_log_sha256": sha256_file(args.live_log) if os.path.exists(args.live_log) else None,
         "data_start": historical["Datetime"].min().strftime("%Y-%m-%d %H:%M"),
         "data_end": live_features["Datetime"].max().strftime("%Y-%m-%d %H:%M"),
-        "data_note": (
-            "Historical 2017-2023 plus timestamped live readings. The 2023-2026 gap "
-            "is not interpolated; live features are built per contiguous segment."
-        ),
         "row_counts": {
             "total": int(len(train) + len(val) + len(test)),
             "train": int(len(train)),
@@ -843,14 +829,8 @@ def main(argv=None):
     write_state(args.models_dir, {
         "last_attempt_utc": utc_text(),
         "last_live_rows": int(raw_rows),
-        "last_live_feature_rows": int(len(live_features)),
         "gate_passed": bool(gate_passed),
         "promoted": bool(promoted),
-        "test_mae_24h": regression_metrics[-1]["MAE (Real Only)"],
-        "test_rmse_24h": rmse_24,
-        "test_skill_pct": num(skill_24, 1),
-        "test_coverage_pct": coverage,
-        "eval_label": eval_label,
         "trained_at_utc": metadata["trained_at_utc"],
     })
 
@@ -858,16 +838,14 @@ def main(argv=None):
     if promoted:
         print(f"Backup:    {backup_dir}")
         print(f"Promoted models to: {args.models_dir}")
-        ok, detail = reload_server("" if args.no_reload else args.reload_url)
+        ok, detail = reload_server(args.reload_url)
         print(f"Server reload: {'ok - ' + str(detail) if ok else 'not reloaded (' + str(detail) + ')'}")
         print("If the server did not reload, restart it to use the new models.")
     else:
         print("Models were NOT promoted. Inspect the candidate and the gate above.")
         print("Use --force-promote only if you understand why the gate failed.")
 
-    if not gate_passed and not args.no_promote and not args.force_promote:
-        return 2
-    return 0
+    return 0 if promoted else 2
 
 
 if __name__ == "__main__":

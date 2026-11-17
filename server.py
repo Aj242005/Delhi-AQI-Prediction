@@ -1,6 +1,10 @@
 import os
+import sys
 import json
 import logging
+import subprocess
+import threading
+import time
 from datetime import timedelta
 
 import numpy as np
@@ -124,6 +128,75 @@ def load_bundle_state():
 
 
 metadata, horizon_boosters, severe_booster = load_bundle_state()
+
+# ---------------------------------------------------------
+# 2b. AUTO-RETRAIN - fold timestamped live readings back in while the server runs
+# ---------------------------------------------------------
+RETRAIN_SCRIPT = os.path.join(BASE_DIR, "retrain.py")
+RETRAIN_CHECK_HOURS = float(os.environ.get("RETRAIN_CHECK_HOURS", "6"))
+RETRAIN_FIRST_DELAY = 5 * 60      # let startup and the first live poll settle
+_retrain_thread = None
+
+
+def swap_bundle():
+    """Re-read Models/ into the running process after a promotion."""
+    global metadata, horizon_boosters, severe_booster
+    metadata, horizon_boosters, severe_booster = load_bundle_state()
+    logger.info("Reloaded models trained at %s", metadata.get("trained_at_utc"))
+
+
+def _metadata_stamp():
+    try:
+        return os.path.getmtime(META_PATH)
+    except OSError:
+        return None
+
+
+def retrain_once():
+    """Run 'retrain.py --if-due'. True when a promoted bundle was swapped in."""
+    before = _metadata_stamp()
+    proc = subprocess.run(
+        [sys.executable, RETRAIN_SCRIPT, "--if-due"], cwd=BASE_DIR,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        timeout=6 * 3600,
+    )
+    output = ((proc.stdout or "") + (proc.stderr or "")).strip()
+    if proc.returncode != 0:
+        logger.warning("Auto-retrain stopped (exit %s): %s", proc.returncode, output[-1500:])
+        return False
+    # retrain.py rewrites Models/model_metadata.json only when it promotes.
+    if _metadata_stamp() == before:
+        return False
+    swap_bundle()
+    logger.info("Auto-retrain promoted a new bundle: %s", metadata.get("trained_at_utc"))
+    return True
+
+
+def start_auto_retrain():
+    """Background due-check, so retraining needs no external scheduler."""
+    global _retrain_thread
+    if os.environ.get("RETRAIN_AUTO", "1") == "0":
+        logger.info("Auto-retrain disabled (RETRAIN_AUTO=0)")
+        return None
+    if _retrain_thread is not None and _retrain_thread.is_alive():
+        return _retrain_thread
+
+    def loop():
+        time.sleep(RETRAIN_FIRST_DELAY)
+        while True:
+            try:
+                retrain_once()
+            except Exception as exc:  # a failed retrain must never stop the server
+                logger.warning("Auto-retrain failed: %s", exc)
+            time.sleep(max(300.0, RETRAIN_CHECK_HOURS * 3600.0))
+
+    _retrain_thread = threading.Thread(target=loop, name="auto-retrain", daemon=True)
+    _retrain_thread.start()
+    logger.info("Auto-retrain: checking every %.1f h (disable with RETRAIN_AUTO=0)", RETRAIN_CHECK_HOURS)
+    return _retrain_thread
+
+
+start_auto_retrain()
 
 # ---------------------------------------------------------
 # 3. PROFILE-AWARE CPCB HEALTH ENGINE (ENGLISH ONLY)
@@ -515,10 +588,8 @@ def health():
 
 @app.post("/api/reload_models")
 def reload_models():
-    """Reload Models/ after retrain.py promotes a candidate (local use only)."""
-    global metadata, horizon_boosters, severe_booster
-    metadata, horizon_boosters, severe_booster = load_bundle_state()
-    logger.info("Reloaded models trained at %s", metadata.get("trained_at_utc"))
+    """Reload Models/ after a manual retrain promotes a candidate (local use only)."""
+    swap_bundle()
     return JSONResponse({
         "reloaded": True,
         "trained_at_utc": metadata.get("trained_at_utc"),
