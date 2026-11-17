@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anand Vihar AQI Forecasting & Health Risk Advisory System</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body, html {
+        width: 100vw; height: 100vh; overflow: hidden;
+        background-color: #050811;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        color: #ffffff;
+    }
+    .bg-photo {
+        position: fixed; inset: 0;
+        background: url('https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=2200&q=85') center/cover no-repeat;
+        filter: brightness(0.48) contrast(1.15) saturate(0.85);
+        z-index: 0;
+    }
+    .bg-vignette {
+        position: fixed; inset: 0;
+        background: radial-gradient(circle at 38% 32%, rgba(10, 18, 32, 0.35) 0%, rgba(5, 9, 18, 0.88) 72%, rgba(3, 5, 10, 0.96) 100%);
+        z-index: 1; pointer-events: none;
+    }
+    #webgl-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 2; pointer-events: none; }
+
+    .app-frame {
+        position: relative; z-index: 10;
+        width: 100vw; height: 100vh;
+        padding: 20px 26px;
+        display: grid;
+        grid-template-columns: 72px 1fr 375px;
+        gap: 22px;
+    }
+
+    .glass-sidebar {
+        background: rgba(255, 255, 255, 0.07); backdrop-filter: blur(28px);
+        border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 22px;
+        display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+        padding: 22px 0;
+    }
+    .logo-orb {
+        width: 42px; height: 42px; border-radius: 50%;
+        background: linear-gradient(135deg, #f97316, #ea580c);
+        display: flex; align-items: center; justify-content: center;
+        font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px;
+    }
+    .dock-menu { display: flex; flex-direction: column; gap: 15px; }
+    .dock-btn {
+        width: 46px; height: 46px; border-radius: 14px;
+        display: flex; align-items: center; justify-content: center;
+        color: rgba(255, 255, 255, 0.55); cursor: pointer;
+        transition: all 0.2s ease; position: relative; border: 1px solid transparent;
+    }
+    .dock-btn:hover, .dock-btn.active {
+        color: #ffffff; background: rgba(255, 255, 255, 0.14);
+        border-color: rgba(255, 255, 255, 0.25);
+    }
+    .dock-btn.active::before {
+        content: ''; position: absolute; left: -13px;
+        width: 4px; height: 20px; background: #f97316; border-radius: 0 4px 4px 0;
+    }
+
+    .center-stage { display: flex; flex-direction: column; justify-content: space-between; padding: 2px 6px; overflow: hidden; }
+    .top-controls { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .meta-kicker { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.1em; color: #fb923c; text-transform: uppercase; }
+    .meta-title { font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+    .gps-pill {
+        font-family: 'JetBrains Mono', monospace; font-size: 11px;
+        color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.16); padding: 3px 10px; border-radius: 999px;
+    }
+
+    /* Source banner: green = live sensor, indigo = replay (NOT live), amber = warming up / warning, red = error */
+    .source-banner {
+        margin-top: 7px; padding: 7px 12px; border-radius: 9px;
+        font-size: 11.5px; font-family: 'JetBrains Mono', monospace;
+        border: 1px solid rgba(16, 185, 129, 0.4); background: rgba(6, 78, 59, 0.55); color: #a7f3d0;
+    }
+    .source-banner.replay {
+        border-color: #818cf8; background: rgba(49, 46, 129, 0.6); color: #c7d2fe; font-weight: 500;
+    }
+    .source-banner.warn {
+        border-color: #f59e0b; background: rgba(120, 53, 15, 0.72); color: #fde68a; font-weight: 500;
+    }
+    .source-banner.error {
+        border-color: #ef4444; background: rgba(127, 29, 29, 0.8); color: #fecaca; font-weight: 600;
+    }
+
+    .selectors-wrap { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .glass-select {
+        appearance: none; -webkit-appearance: none;
+        background: rgba(15, 23, 42, 0.75) url("data:image/svg+xml;utf8,<svg fill='white' height='16' viewBox='0 0 24 24' width='16' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>") no-repeat right 8px center;
+        border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 10px; color: #ffffff;
+        padding: 8px 28px 8px 12px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; font-weight: 500;
+        cursor: pointer !important; outline: none;
+    }
+    .glass-select option { background: #0f172a; color: #ffffff; }
+
+    .view-section { display: none; overflow-y: auto; max-height: 495px; padding-right: 4px; }
+    .view-section.active { display: block; }
+
+    .status-badge {
+        display: inline-flex; align-items: center; gap: 8px;
+        background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 500; margin-bottom: 12px;
+    }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #f97316; }
+    .hero-h1 { font-size: 44px; font-weight: 600; line-height: 1.08; letter-spacing: -0.03em; max-width: 660px; margin-bottom: 12px; }
+    .hero-p { font-size: 14px; line-height: 1.6; color: rgba(255, 255, 255, 0.88); max-width: 610px; }
+
+    .progress-track { height: 6px; max-width: 420px; margin-top: 10px; background: rgba(255,255,255,0.15); border-radius: 4px; }
+    .progress-fill { height: 6px; background: #f59e0b; border-radius: 4px; }
+
+    .cards-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 8px; }
+    .info-glass-card {
+        background: rgba(15, 23, 42, 0.68); border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 14px; padding: 13px 16px;
+    }
+    .info-kicker { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #fb923c; text-transform: uppercase; margin-bottom: 4px; }
+    .info-body { font-size: 12.5px; line-height: 1.48; color: rgba(255, 255, 255, 0.88); }
+
+    .audit-tbl {
+        width: 100%; border-collapse: collapse; margin-top: 6px; margin-bottom: 10px;
+        background: rgba(15, 23, 42, 0.78); border-radius: 10px; overflow: hidden; font-size: 11.5px;
+    }
+    .audit-tbl th, .audit-tbl td { padding: 7px 10px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+    .audit-tbl th { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #fb923c; text-transform: uppercase; }
+
+    .wave-dock {
+        background: rgba(10, 15, 28, 0.6); backdrop-filter: blur(22px);
+        border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 20px;
+        padding: 12px 22px;
+    }
+    .chart-caption { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; }
+    .wave-nums { display: grid; grid-template-columns: repeat(6, 1fr); text-align: center; font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 500; }
+    .wave-nums span { font-size: 10.5px; color: rgba(255,255,255,0.55); margin-left: 2px; }
+    .wave-times { display: grid; grid-template-columns: repeat(6, 1fr); text-align: center; font-size: 11.5px; color: rgba(255,255,255,0.72); margin-top: 4px; }
+
+    .right-column { display: flex; flex-direction: column; gap: 11px; height: 100%; }
+    .primary-glass {
+        background: rgba(255, 255, 255, 0.11); backdrop-filter: blur(30px);
+        border: 1px solid rgba(255, 255, 255, 0.24); border-radius: 20px;
+        padding: 18px; text-align: center;
+    }
+    .replay-tag {
+        display: none; margin-bottom: 8px; padding: 4px 11px; border-radius: 999px;
+        font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em;
+        color: #e0e7ff; background: rgba(99, 102, 241, 0.28); border: 1px solid #818cf8;
+    }
+    .big-aqi { font-family: 'Space Grotesk', sans-serif; font-size: 58px; font-weight: 600; line-height: 1; margin: 5px 0 6px 0; }
+    .weather-strip { display: flex; justify-content: center; gap: 14px; font-size: 12px; color: rgba(255,255,255,0.8); padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.15); }
+
+    .secondary-glass {
+        background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(24px);
+        border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 15px;
+        padding: 12px 15px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .sec-kicker { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(255,255,255,0.55); }
+    .sec-main { font-size: 13.5px; font-weight: 600; margin: 2px 0; }
+    .sec-sub { font-size: 11px; color: rgba(255,255,255,0.68); }
+    .sec-num { font-family: 'Space Grotesk', sans-serif; font-size: 26px; font-weight: 600; }
+
+    .disclaimer-box {
+        margin-top: auto; background: rgba(15, 23, 42, 0.88);
+        border: 1px solid rgba(255, 255, 255, 0.15); border-left: 3px solid #f59e0b;
+        border-radius: 11px; padding: 10px 12px; font-size: 10.5px; line-height: 1.42; color: #cbd5e1;
+    }
+</style>
+</head>
+<body>
+
+<div class="bg-photo"></div>
+<div class="bg-vignette"></div>
+<canvas id="webgl-canvas"></canvas>
+
+<div class="app-frame">
+    <!-- 1. LEFT DOCK -->
+    <aside class="glass-sidebar">
+        <div class="logo-orb" title="DPCC Anand Vihar System">AV</div>
+        <div class="dock-menu">
+            <div class="dock-btn active" onclick="switchTab('forecast', this)" title="Multi-Horizon Forecast">
+                <svg width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+            </div>
+            <div class="dock-btn" onclick="switchTab('advisory', this)" title="Profile-Specific CPCB Health Engine">
+                <svg width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <div class="dock-btn" onclick="switchTab('jargon', this)" title="'Jargon Buster' Glossary">
+                <svg width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="dock-btn" onclick="switchTab('audit', this)" title="3-Way Split Validation & Horizon Audit">
+                <svg width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+            </div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; color:rgba(255,255,255,0.45); writing-mode:vertical-rl; transform:rotate(180deg);">
+            ANAND VIHAR
+        </div>
+    </aside>
+
+    <!-- 2. CENTER STAGE -->
+    <main class="center-stage">
+        <div>
+            <header class="top-controls">
+                <div>
+                    <span class="meta-kicker">SINGLE-STATION SCOPE • DPCC ANAND VIHAR (WAQI @2553)</span>
+                    <div class="meta-title">
+                        <span>DPCC Anand Vihar, New Delhi</span>
+                        <span class="gps-pill">⌖ 28.6469°N 77.3160°E</span>
+                    </div>
+                </div>
+
+                <div class="selectors-wrap">
+                    <select id="sel-mode" class="glass-select" onchange="loadTelemetry()">
+                        <option value="live_ground">🟢 Live Ground Sensor (DPCC Anand Vihar)</option>
+                        <option value="archive_2023">🕘 Replay: Recorded 2023 Data (not live)</option>
+                    </select>
+
+                    <select id="sel-window" class="glass-select" style="display:none;" onchange="loadTelemetry()">
+                        <option value="7400">📅 Nov 05, 2023 (Severe Smog Peak)</option>
+                        <option value="8100">📅 Dec 04, 2023 (Winter Inversion)</option>
+                        <option value="3200">📅 May 14, 2023 (Summer Dust)</option>
+                        <option value="5100">📅 Aug 01, 2023 (Monsoon Washout)</option>
+                    </select>
+
+                    <select id="sel-profile" class="glass-select" onchange="loadTelemetry()">
+                        <option value="Healthy Adult">👤 Healthy Adult</option>
+                        <option value="Child (Under 12)">👶 Child (Under 12)</option>
+                        <option value="Elderly (60+ Years)">🧓 Elderly (60+ Years)</option>
+                        <option value="Asthma Patient">🫁 Asthma Patient</option>
+                        <option value="Outdoor Worker">👷 Outdoor Worker</option>
+                    </select>
+                </div>
+            </header>
+
+            <div id="ui-source-banner" class="source-banner warn">Connecting to the forecast server...</div>
+        </div>
+
+        <!-- TAB 1: FORECAST -->
+        <section id="tab-forecast" class="view-section active">
+            <div class="status-badge">
+                <span class="live-dot" id="ui-dot"></span>
+                <span id="ui-badge-text">Loading Anand Vihar Forecast...</span>
+            </div>
+            <h1 class="hero-h1" id="ui-headline">---</h1>
+            <p class="hero-p" id="ui-advice"></p>
+            <p style="margin-top:10px; font-size:12.5px; color:rgba(255,255,255,0.72); max-width:620px;" id="ui-drivers"></p>
+        </section>
+
+        <!-- TAB 2: PROFILE-AWARE HEALTH ENGINE -->
+        <section id="tab-advisory" class="view-section">
+            <div class="status-badge"><span class="live-dot"></span><span>PROFILE-SPECIFIC CPCB HEALTH ENGINE (50 / 100 / 200 / 300 / 400 BREAKPOINTS)</span></div>
+            <div class="cards-grid">
+                <div class="info-glass-card">
+                    <div class="info-kicker">01 • CPCB & WHO Aligned Behavioural Guidance</div>
+                    <div class="info-body" id="mm-advice"></div>
+                </div>
+                <div class="info-glass-card">
+                    <div class="info-kicker">02 • Profile-Specific Respiratory Protection</div>
+                    <div class="info-body" id="mm-mask"></div>
+                </div>
+                <div class="info-glass-card">
+                    <div class="info-kicker">03 • Profile-Specific Ventilation & Shelter Rule</div>
+                    <div class="info-body" id="mm-vent"></div>
+                </div>
+                <div class="info-glass-card">
+                    <div class="info-kicker">04 • Predicted Horizon Low vs. High</div>
+                    <div class="info-body" id="mm-windows"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: JARGON BUSTER -->
+        <section id="tab-jargon" class="view-section">
+            <div class="status-badge"><span class="live-dot"></span><span>ATMOSPHERIC & STATISTICAL GLOSSARY ('JARGON BUSTER')</span></div>
+            <div class="cards-grid">
+                <div class="info-glass-card">
+                    <div class="info-kicker">Latest Hour vs. 24-Hour Average</div>
+                    <div class="info-body">CPCB's bulletin reports a 24-hour running average, while sites like aqi.in and WAQI show the latest hourly reading. The model was trained on hourly values, so this app feeds it the latest hourly sensor reading and shows an approximate 24-hour average (from the readings it has saved) for comparison only.</div>
+                </div>
+                <div class="info-glass-card">
+                    <div class="info-kicker">Precision vs. Recall on Severe Days</div>
+                    <div class="info-body">Recall measures the share of actual Severe (>400) hours caught (minimizing missed health warnings), while Precision measures how often a Severe alert is correct.</div>
+                </div>
+                <div class="info-glass-card">
+                    <div class="info-kicker">500 AQI Scale Ceiling</div>
+                    <div class="info-body">The Indian CPCB AQI scale tops out at 500, and 3,820 hours in our 2017–2023 dataset sit at that ceiling. Standard regression attenuates near 500, so we pair it with a calibrated severe-day classifier.</div>
+                </div>
+                <div class="info-glass-card">
+                    <div class="info-kicker">3-Way Chronological Validation</div>
+                    <div class="info-body">To prevent test leakage, hyperparameters and empirical prediction intervals are tuned strictly on 2022 validation data before evaluating once on the 2023 test set.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: BUNDLE-DRIVEN AUDIT TABLES -->
+        <section id="tab-audit" class="view-section">
+            <div class="info-kicker">1. +24h Regression Benchmark (2023 Test Set • 5-Seed Stability)</div>
+            <table class="audit-tbl" id="tbl-reg">
+                <thead>
+                    <tr><th>Model</th><th>RMSE (All 2023)</th><th>RMSE (Real Only)</th><th>MAE (Real)</th><th>R² (Real)</th><th>5-Seed SD</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+
+            <div class="info-kicker">2. Dedicated Severe-Day (>400 AQI) Classification Audit (2022 Val vs. 2023 Test)</div>
+            <table class="audit-tbl" id="tbl-sev">
+                <thead>
+                    <tr><th>Method</th><th>Split</th><th>Precision</th><th>Recall (Sens.)</th><th>F1-Score</th><th>Missed Severe (FN)</th><th>False Alarms (FP)</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+
+            <div class="info-kicker">3. Multi-Horizon Point Forecast Performance (+4h to +24h vs. Horizon Persistence)</div>
+            <table class="audit-tbl" id="tbl-hor">
+                <thead>
+                    <tr><th>Horizon</th><th>XGBoost RMSE (Real)</th><th>Persistence RMSE (Real)</th><th>XGBoost MAE (Real)</th><th>Skill vs. Persistence</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+
+            <div class="info-glass-card" style="padding:9px 12px; font-size:11px; font-family:'JetBrains Mono',monospace;" id="ui-provenance"></div>
+        </section>
+
+        <!-- BOTTOM MULTI-HORIZON POINT CHART -->
+        <div class="wave-dock">
+            <div class="chart-caption">Trained Multi-Horizon XGBoost Point Forecasts (+4h, +8h, +12h, +16h, +20h, +24h — Dashed Connector)</div>
+            <div class="wave-nums" id="ui-wave-nums"></div>
+            <svg viewBox="0 0 780 72" width="100%" height="66" style="overflow:visible;">
+                <path id="svg-line" fill="none" stroke="#f97316" stroke-width="2.5" stroke-dasharray="5,4" d=""></path>
+                <g id="svg-points"></g>
+            </svg>
+            <div class="wave-times" id="ui-wave-times"></div>
+        </div>
+    </main>
+
+    <!-- 3. RIGHT FROSTED GLASS STACK -->
+    <aside class="right-column">
+        <div class="primary-glass">
+            <div style="font-size:13px; font-weight:600; margin-bottom:2px;">📍 DPCC Anand Vihar (@2553)</div>
+            <div id="ui-replay-tag" class="replay-tag"></div>
+            <div id="card-cur-label" style="font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:rgba(255,255,255,0.6);">Current AQI</div>
+            <div class="big-aqi" id="card-cur-aqi">---</div>
+            <div id="card-dual-sub" style="font-size:11px; font-family:'JetBrains Mono',monospace; color:#fb923c; margin-bottom:6px; line-height:1.4;"></div>
+            <div class="weather-strip">
+                <span id="card-wind">💨 -- km/h</span>
+                <span id="card-hum">💧 --%</span>
+                <span id="card-temp">🌡️ --°C</span>
+            </div>
+        </div>
+
+        <div class="secondary-glass">
+            <div>
+                <div class="sec-kicker">+24h Point Forecast</div>
+                <div class="sec-main" id="card-pred-cat">---</div>
+                <div class="sec-sub" id="card-conf">2022-Calibrated Band: ---</div>
+            </div>
+            <div class="sec-num" id="card-pred-aqi">---</div>
+        </div>
+
+        <div class="secondary-glass">
+            <div>
+                <div class="sec-kicker">Severe (>400) Classifier</div>
+                <div class="sec-main" id="card-sev-prob">---</div>
+                <div class="sec-sub" id="card-peak-time">Max Horizon: ---</div>
+            </div>
+            <div class="sec-num" id="card-peak-aqi">---</div>
+        </div>
+
+        <div class="secondary-glass">
+            <div>
+                <div class="sec-kicker">Profile-Specific Protocol</div>
+                <div class="sec-main" id="card-mask" style="font-size:12.5px;">---</div>
+                <div class="sec-sub" id="card-vent">---</div>
+            </div>
+            <div class="sec-num" style="font-size:20px;">🛡️</div>
+        </div>
+
+        <div class="disclaimer-box">
+            <b>⚠️ Disclaimer & Citations:</b> Cut-offs (50, 100, 200, 300, 400) follow <b>CPCB National AQI (2014)</b> & <b>WHO AQG (2021)</b>. Single-station prototype for Anand Vihar (the AQI scale tops out at 500, with 3,820 hours at that ceiling). <b>Not an official forecast and not medical advice.</b>
+        </div>
+    </aside>
+</div>
+
+<script>
+    // 1. Optional 3D background. If the three.js CDN is blocked/offline the dashboard still works.
+    let planeMat = { color: { set: function () {} } };
+    (function init3D() {
+        if (typeof THREE === 'undefined') { return; }
+        const canvas = document.getElementById('webgl-canvas');
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 14, 34);
+        camera.lookAt(0, 0, 0);
+
+        const planeGeo = new THREE.PlaneGeometry(95, 60, 60, 40);
+        planeGeo.rotateX(-Math.PI / 2.2);
+        planeMat = new THREE.MeshBasicMaterial({ color: 0xf97316, wireframe: true, transparent: true, opacity: 0.12 });
+        const terrain = new THREE.Mesh(planeGeo, planeMat);
+        terrain.position.y = -8;
+        scene.add(terrain);
+
+        let clock = 0;
+        const posAttr = planeGeo.attributes.position;
+        const origY = new Float32Array(posAttr.count);
+        for (let i = 0; i < posAttr.count; i++) origY[i] = posAttr.getY(i);
+
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            clock += 0.012;
+            for (let i = 0; i < posAttr.count; i++) {
+                const x = posAttr.getX(i), z = posAttr.getZ(i);
+                posAttr.setY(i, origY[i] + Math.sin(x * 0.12 + clock) * 1.4 + Math.cos(z * 0.15 + clock) * 1.2);
+            }
+            posAttr.needsUpdate = true;
+            renderer.render(scene, camera);
+        }
+        animate3D();
+    })();
+
+    function switchTab(tabId, btn) {
+        document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.dock-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + tabId).classList.add('active');
+        btn.classList.add('active');
+    }
+
+    function setText(id, txt) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = txt;
+    }
+
+    function setBanner(level, text) {
+        const sb = document.getElementById('ui-source-banner');
+        sb.textContent = text;
+        let cls = 'source-banner';
+        if (level === 'replay') cls += ' replay';
+        else if (level === 'live_ground') cls += '';
+        else if (level === 'error' || level === 'fallback_error') cls += ' error';
+        else cls += ' warn';
+        sb.className = cls;
+    }
+
+    // Normal view: live forecast or replay forecast
+    function renderForecast(d) {
+        const replayPrefix = d.is_replay ? `<b>${d.replay_label}</b> • ` : '';
+        document.getElementById('ui-dot').style.background = d.cur_col;
+        document.getElementById('ui-badge-text').innerHTML = `${replayPrefix}Input: <b>${d.cur_cat}</b> • +24h Point Forecast: <b>${d.pred_24h} AQI (${d.pred_cat})</b>`;
+        setText('ui-headline', d.headline);
+        setText('ui-advice', d.advisory.advice);
+        document.getElementById('ui-drivers').innerHTML =
+            `<b>2022-Calibrated Residual Interval:</b> 10th–90th percentile band is <b>${d.pi80_label}</b> ` +
+            `(achieved <b>${d.coverage_2023_pct}% empirical coverage</b> on unseen 2023 verified test hours; ±1 MAE spread: <b>${d.spread_label}</b>).`;
+
+        setText('card-cur-aqi', d.current_aqi);
+        document.getElementById('card-cur-aqi').style.color = d.cur_col;
+        setText('card-dual-sub', d.dual_sub || '');
+        setText('card-wind', `💨 ${d.wind} km/h`);
+        setText('card-hum', `💧 ${d.humidity}%`);
+        setText('card-temp', `🌡️ ${d.temp}°C`);
+
+        setText('card-pred-cat', d.pred_cat);
+        setText('card-conf', `Band: ${d.pi80_label} (${d.coverage_2023_pct}% Cov.)`);
+        setText('card-pred-aqi', d.pred_24h);
+        document.getElementById('card-pred-aqi').style.color = d.pred_col;
+
+        setText('card-sev-prob', d.severe_prob_str);
+        setText('card-peak-time', `Highest Horizon: ${d.worst_hour}`);
+        setText('card-peak-aqi', d.peak_24h);
+
+        setText('card-mask', d.advisory.mask);
+        setText('card-vent', d.advisory.ventilation);
+        setText('mm-advice', d.advisory.advice);
+        setText('mm-mask', d.advisory.mask);
+        setText('mm-vent', d.advisory.ventilation);
+        document.getElementById('mm-windows').innerHTML = `Lowest Predicted Horizon: <b>${d.best_hour} (${d.min_24h} AQI)</b><br>Highest Predicted Horizon: <b>${d.worst_hour} (${d.peak_24h} AQI)</b>`;
+
+        const xs = [65, 195, 325, 455, 585, 715];
+        const aqiVals = d.wave.map(w => w.aqi);
+        const minA = Math.min(...aqiVals) - 20;
+        const maxA = Math.max(...aqiVals) + 20;
+        const ys = aqiVals.map(v => 58 - ((v - minA) / Math.max(1, (maxA - minA))) * 44);
+
+        document.getElementById('ui-wave-nums').innerHTML = d.wave.map(w => `<div>${w.aqi}<span>AQI</span></div>`).join('');
+        document.getElementById('ui-wave-times').innerHTML = d.wave.map(w => `<div><b>${w.horizon}</b> (${w.time})</div>`).join('');
+
+        const polyPoints = xs.map((x, idx) => `${x === 65 ? 'M' : 'L'} ${x} ${ys[idx]}`).join(' ');
+        document.getElementById('svg-line').setAttribute('d', polyPoints);
+        document.getElementById('svg-points').innerHTML = xs.map((x, idx) =>
+            `<circle cx="${x}" cy="${ys[idx]}" r="5" fill="#ffffff" stroke="#f97316" stroke-width="2.5"></circle>`
+        ).join('');
+    }
+
+    // Live view while the 49-hour history is still being collected (or the feed is down): no forecast
+    function renderCollecting(d) {
+        const has = d.current_aqi !== null && d.current_aqi !== undefined;
+        document.getElementById('ui-dot').style.background = d.cur_col || '#64748b';
+        document.getElementById('ui-badge-text').innerHTML = has
+            ? `Live reading: <b>${d.cur_cat}</b> • forecast paused`
+            : 'No live reading to show';
+        setText('ui-headline', d.headline);
+        setText('ui-advice', d.advisory.advice);
+        const pct = Math.max(0, Math.min(100, Math.round(100 * (d.collect_have || 0) / (d.collect_need || 49))));
+        document.getElementById('ui-drivers').innerHTML = `${d.collect_note || ''}` +
+            ((d.collect_need && d.source_warning_level === 'collecting') ? `<div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>` : '');
+
+        setText('card-cur-aqi', has ? d.current_aqi : '—');
+        document.getElementById('card-cur-aqi').style.color = d.cur_col || '#94a3b8';
+        setText('card-dual-sub', '');
+        setText('card-wind', (has && d.wind !== null) ? `💨 ${d.wind} km/h` : '💨 -- km/h');
+        setText('card-hum', (has && d.humidity !== null) ? `💧 ${d.humidity}%` : '💧 --%');
+        setText('card-temp', (has && d.temp !== null) ? `🌡️ ${d.temp}°C` : '🌡️ --°C');
+
+        ['card-pred-cat', 'card-pred-aqi', 'card-sev-prob', 'card-peak-aqi'].forEach(id => setText(id, '—'));
+        document.getElementById('card-pred-aqi').style.color = '';
+        setText('card-conf', 'Forecast paused');
+        setText('card-peak-time', 'Forecast paused');
+        setText('card-mask', d.advisory.mask);
+        setText('card-vent', d.advisory.ventilation);
+        setText('mm-advice', d.advisory.advice);
+        setText('mm-mask', d.advisory.mask);
+        setText('mm-vent', d.advisory.ventilation);
+        setText('mm-windows', 'Forecast windows appear once the live history is ready.');
+
+        document.getElementById('ui-wave-nums').innerHTML = '';
+        document.getElementById('ui-wave-times').innerHTML =
+            '<div style="grid-column: 1 / -1;">Forecast points appear here once 49 hours of live readings are saved.</div>';
+        document.getElementById('svg-line').setAttribute('d', '');
+        document.getElementById('svg-points').innerHTML = '';
+    }
+
+    function renderAudit(meta) {
+        document.querySelector('#tbl-reg tbody').innerHTML = meta.regression_metrics.map(r => `
+            <tr>
+                <td style="font-weight:600; color:#fff;">${r['Model']}</td>
+                <td>${r['RMSE (All 2023)']}</td>
+                <td style="color:#38bdf8; font-weight:600;">${r['RMSE (Real Only)']}</td>
+                <td>${r['MAE (Real Only)']}</td>
+                <td>${r['R2 (Real Only)']}</td>
+                <td>${r['5-Seed Spread (SD)']}</td>
+            </tr>
+        `).join('');
+
+        document.querySelector('#tbl-sev tbody').innerHTML = meta.severe_classification_metrics.map(r => `
+            <tr>
+                <td style="font-weight:600; color:#fff;">${r['Method']}</td>
+                <td>${r['Eval Split']}</td>
+                <td>${r['Precision']}</td>
+                <td style="color:#10b981; font-weight:600;">${r['Recall (Sensitivity)']}</td>
+                <td style="color:#fb923c; font-weight:600;">${r['F1-Score']}</td>
+                <td>${r['Missed Severe Hours (FN)']}</td>
+                <td>${r['False Alarms (FP)']}</td>
+            </tr>
+        `).join('');
+
+        document.querySelector('#tbl-hor tbody').innerHTML = meta.horizon_metrics.map(r => `
+            <tr>
+                <td style="font-weight:600; color:#fff;">${r['Horizon']}</td>
+                <td>${r['XGBoost RMSE (Real)']}</td>
+                <td>${r['Persistence RMSE (Real)']}</td>
+                <td>${r['XGBoost MAE (Real)']}</td>
+                <td style="color:#10b981; font-weight:600;">${r['Skill vs Persistence']}</td>
+            </tr>
+        `).join('');
+
+        const rc = meta.row_counts;
+        const lv = meta.library_versions;
+        document.getElementById('ui-provenance').innerHTML =
+            `<b>Bundle Provenance:</b> Trained ${meta.trained_at_utc} | Rows: ${rc.total} (Train 17–21: ${rc.train_2017_2021}, Val 22 Real: ${rc.val_2022_real}, Test 23 Real: ${rc.test_2023_real}) | ` +
+            `SHA256: ${meta.dataset_sha256.slice(0, 12)}... | XGBoost ${lv.xgboost} • Sklearn ${lv.scikit_learn} (Native JSON Models)`;
+    }
+
+    async function loadTelemetry() {
+        const mode = document.getElementById('sel-mode').value;
+        const winIdx = document.getElementById('sel-window').value;
+        const prof = document.getElementById('sel-profile').value;
+
+        document.getElementById('sel-window').style.display = (mode === 'archive_2023') ? 'inline-block' : 'none';
+
+        let d;
+        try {
+            const res = await fetch(`/api/predict?mode=${encodeURIComponent(mode)}&archive_idx=${encodeURIComponent(winIdx)}&profile=${encodeURIComponent(prof)}`);
+            d = await res.json();
+            if (!res.ok) throw new Error(d.detail || res.statusText);
+        } catch (err) {
+            setBanner('error', '🚨 Could not get a forecast from the server: ' + err.message);
+            return;
+        }
+
+        planeMat.color.set(d.cur_col);
+        setBanner(d.source_warning_level, d.source_banner);
+
+        // "REPLAY - NOT LIVE" tag so old data can never be mistaken for today's air
+        const rt = document.getElementById('ui-replay-tag');
+        rt.style.display = d.is_replay ? 'inline-block' : 'none';
+        rt.textContent = d.is_replay ? '🕘 ' + d.replay_label + ' — NOT LIVE' : '';
+        setText('card-cur-label', d.is_replay
+            ? 'Replay reading (not live)'
+            : ((d.source_mode === 'live_ground' && d.reading_time) ? 'Live ground reading • ' + d.reading_time : 'Current AQI'));
+
+        if (d.forecast_available === false) {
+            renderCollecting(d);
+        } else {
+            renderForecast(d);
+        }
+        renderAudit(d.metadata);
+    }
+
+    loadTelemetry();
+    // Live mode refreshes every 5 minutes; replay never changes.
+    setInterval(() => {
+        if (document.getElementById('sel-mode').value === 'live_ground') loadTelemetry();
+    }, 5 * 60 * 1000);
+</script>
+</body>
+</html>
