@@ -8,11 +8,25 @@ hour arrives in Live/ground_log.csv, score() joins the two and reports rolling
 error, 80% interval coverage, the severe-probability Brier score and skill
 against 24-hour persistence.
 
-Everything stays in the two local CSV files; there is no database and no
-network call.  Replay forecasts are never logged, because recorded 2023 hours
-can never be graded against today's sensor.
+Three things keep the log honest and small:
+
+* A module lock covers the read-dedupe-append-prune sequence, so two requests
+  handled at the same time cannot both append the same target hour.
+* The parsed file and its dedupe keys are cached by file signature.  A request
+  that issues a known target touches only memory; an unchanged file is never
+  re-parsed.
+* Rows older than FORECAST_LOG_RETENTION_DAYS (default 45) are dropped when a
+  new issue is written, so the file stays at a few thousand rows instead of
+  growing for as long as the server lives.
+
+Grading splits the ungraded rows in two: `pending` hours are still in the
+future, `missing` hours have already passed without a saved reading (the
+server or the feed was down), and those can never be scored.
+
+Everything stays in the two local CSV files; there is no database.
 """
 import os
+import threading
 from datetime import datetime, timezone
 
 import numpy as np
@@ -22,11 +36,63 @@ import ground_feed
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_PATH = os.environ.get("FORECAST_LOG_PATH", os.path.join(BASE_DIR, "Live", "forecast_log.csv"))
+RETENTION_DAYS = float(os.environ.get("FORECAST_LOG_RETENTION_DAYS", "45"))
 
 COLUMNS = [
     "issued_utc", "mode", "horizon", "lead_hours", "target_iso",
     "base_aqi", "pred", "pi_low", "pi_high", "severe_pct", "trained_at",
 ]
+
+_LOCK = threading.Lock()
+_CACHE = {}  # path -> {"sig": (size, mtime_ns) | None, "df": DataFrame, "keys": set}
+
+
+def _signature(path):
+    try:
+        stat = os.stat(path)
+        return (stat.st_size, stat.st_mtime_ns)
+    except OSError:
+        return None
+
+
+def _empty():
+    return pd.DataFrame(columns=COLUMNS)
+
+
+def _parse(path):
+    if _signature(path) is None:
+        return _empty()
+    try:
+        df = pd.read_csv(path, on_bad_lines="skip")
+    except Exception:  # an unreadable log must never break scoring
+        return _empty()
+    if df.empty:
+        return _empty()
+    df["target_iso"] = pd.to_datetime(df["target_iso"], errors="coerce")
+    df["pred"] = pd.to_numeric(df["pred"], errors="coerce")
+    df = df.dropna(subset=["target_iso", "pred"])
+    # A duplicated pair would double-count an hour in every rolling metric.
+    df = df.drop_duplicates(subset=["horizon", "target_iso"], keep="first")
+    return df.sort_values("target_iso").reset_index(drop=True)
+
+
+def _read(path):
+    """Parsed log for `path`, re-read only when the file changed on disk."""
+    cached = _CACHE.get(path)
+    sig = _signature(path)
+    if cached is not None and cached["sig"] == sig:
+        return cached["df"]
+    df = _parse(path)
+    _CACHE[path] = {"sig": sig, "df": df,
+                    "keys": set(zip(df["horizon"].astype(str), df["target_iso"]))}
+    return df
+
+
+def load(path=None):
+    """Snapshot of the log. Treat the frame as read-only."""
+    path = path or LOG_PATH
+    with _LOCK:
+        return _read(path)
 
 
 def _lead(horizon):
@@ -34,20 +100,19 @@ def _lead(horizon):
     return int(digits) if digits else 0
 
 
-def load(path=None):
-    path = path or LOG_PATH
-    if not os.path.exists(path):
-        return pd.DataFrame(columns=COLUMNS)
-    try:
-        df = pd.read_csv(path, on_bad_lines="skip")
-    except Exception:  # an unreadable log must never break scoring
-        return pd.DataFrame(columns=COLUMNS)
-    if df.empty:
-        return pd.DataFrame(columns=COLUMNS)
-    df["target_iso"] = pd.to_datetime(df["target_iso"], errors="coerce")
-    df["pred"] = pd.to_numeric(df["pred"], errors="coerce")
-    df = df.dropna(subset=["target_iso", "pred"])
-    return df.sort_values("target_iso").reset_index(drop=True)
+def _prune(df, path):
+    """Drop rows past the retention window, rewriting the file only when needed."""
+    if df.empty or RETENTION_DAYS <= 0:
+        return df
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    cutoff = pd.Timestamp(now) - pd.Timedelta(days=RETENTION_DAYS)
+    kept = df[df["target_iso"] >= cutoff].reset_index(drop=True)
+    if len(kept) == len(df):
+        return df
+    tmp = path + ".tmp"
+    kept.to_csv(tmp, index=False)
+    os.replace(tmp, path)
+    return kept
 
 
 def log_issue(wave, base_aqi, pi_low=None, pi_high=None, severe_pct=None,
@@ -74,32 +139,48 @@ def log_issue(wave, base_aqi, pi_low=None, pi_high=None, severe_pct=None,
             "target_iso": pd.Timestamp(iso).floor("h").isoformat(),
             "base_aqi": base_aqi,
             "pred": point.get("aqi"),
-            "pi_low": pi_low if is_last else "",
-            "pi_high": pi_high if is_last else "",
-            "severe_pct": severe_pct if is_last and severe_pct is not None else "",
+            "pi_low": pi_low if is_last else np.nan,
+            "pi_high": pi_high if is_last else np.nan,
+            "severe_pct": severe_pct if is_last and severe_pct is not None else np.nan,
             "trained_at": trained_at,
         })
 
-    existing = load(path)
-    if len(existing):
-        seen = set(zip(existing["horizon"].astype(str), existing["target_iso"]))
-        rows = [row for row in rows
-                if (row["horizon"], pd.Timestamp(row["target_iso"])) not in seen]
-    if not rows:
-        return 0
+    with _LOCK:
+        df = _read(path)
+        keys = _CACHE[path]["keys"]
+        fresh = [row for row in rows
+                 if (row["horizon"], pd.Timestamp(row["target_iso"])) not in keys]
+        if not fresh:
+            return 0
 
-    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    new_file = not os.path.exists(path)
-    pd.DataFrame(rows, columns=COLUMNS).to_csv(path, mode="a", header=new_file, index=False)
-    return len(rows)
+        new_df = pd.DataFrame(fresh, columns=COLUMNS)
+        # Match the dtypes _parse produces so concat and pruning stay comparable.
+        new_df["target_iso"] = pd.to_datetime(new_df["target_iso"])
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        new_file = _signature(path) is None
+        new_df.to_csv(path, mode="a", header=new_file, index=False)
+
+        merged = new_df if df.empty else pd.concat([df, new_df], ignore_index=True)
+        merged = _prune(merged, path)
+        _CACHE[path] = {
+            "sig": _signature(path),
+            "df": merged,
+            "keys": set(zip(merged["horizon"].astype(str), merged["target_iso"])),
+        }
+        return len(fresh)
 
 
-def score(days=7, path=None, readings=None):
+def score(days=7, path=None, readings=None, now=None):
     """Join logged forecasts with the live readings that have since arrived."""
-    forecast = load(path)
+    path = path or LOG_PATH
+    with _LOCK:
+        forecast = _read(path)
+        forecast = forecast.copy() if len(forecast) else forecast
     readings = ground_feed.load_log() if readings is None else readings
+    now = pd.Timestamp(ground_feed.now_ist()) if now is None else pd.Timestamp(now)
+
     out = {
-        "window_days": int(days), "logged": 0, "scored": 0, "pending": 0,
+        "window_days": int(days), "logged": 0, "scored": 0, "pending": 0, "missing": 0,
         "horizons": [], "coverage_pct": None, "coverage_rows": 0,
         "brier": None, "brier_rows": 0, "severe_hours": 0,
         "reliability": [], "latest_target": None, "note": "",
@@ -109,7 +190,7 @@ def score(days=7, path=None, readings=None):
         return out
 
     latest = readings["Datetime"].max()
-    window = forecast[forecast["target_iso"] > latest - pd.Timedelta(days=days)].copy()
+    window = forecast[forecast["target_iso"] > latest - pd.Timedelta(days=days)]
     out["logged"] = int(len(window))
     if window.empty:
         out["note"] = f"No live forecasts in the last {days} days."
@@ -118,12 +199,19 @@ def score(days=7, path=None, readings=None):
     merged = window.merge(
         readings[["Datetime", "AQI"]], left_on="target_iso", right_on="Datetime", how="left"
     )
-    done = merged.dropna(subset=["AQI"]).copy()
-    out["pending"] = int(len(merged) - len(done))
     out["latest_target"] = merged["target_iso"].max().isoformat()
+
+    ungraded = merged[merged["AQI"].isna()]
+    # The hour just gone may still be saved a few minutes late; only older
+    # targets are treated as permanently missing.
+    still_due = ungraded["target_iso"] > now - pd.Timedelta(hours=1)
+    out["pending"] = int(still_due.sum())
+    out["missing"] = int((~still_due).sum())
+
+    done = merged.dropna(subset=["AQI"]).copy()
     if done.empty:
-        out["note"] = (f"{len(merged)} forecast rows logged; none of their target "
-                       "hours has a live reading yet.")
+        out["note"] = (f"{len(merged)} forecast rows logged; {out['pending']} still waiting "
+                       f"for their hour and {out['missing']} passed with no saved reading.")
         return out
 
     done["error"] = done["pred"] - done["AQI"]

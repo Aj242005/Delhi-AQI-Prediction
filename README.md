@@ -92,8 +92,12 @@ Every live forecast the API issues is written to `Live/forecast_log.csv`: one ro
 * skill against 24-hour persistence (holding the issue-hour reading flat),
 * how often the actual reading landed inside the 80% interval,
 * the Brier score and a reliability strip for the severe-day probability,
-* how many forecast hours are still waiting for their reading,
+* how many forecast hours are still waiting for their reading, and how many hour slots passed with no reading at all,
 * live-vs-training drift (mean and z-score for AQI, temperature, humidity, wind).
+
+An ungraded row is reported as **pending** while its target hour is still ahead (or within the last hour), and as **missing** once that hour has passed without a saved reading. Missing rows are never scored against a guess, and the board says so: a server or feed outage shows up as missing hours instead of a silent gap in the error numbers.
+
+Writes are safe under concurrent requests: `log_issue` holds a module lock across read, dedupe, append and prune, so two overlapping `/api/predict` calls can never write the same `(horizon, target hour)` twice. The parsed log is cached by `(size, mtime)`, so unchanged files are not re-read on every request, and rows older than `FORECAST_LOG_RETENTION_DAYS` (default 45) are pruned on append with an atomic replace. Scoring dedupes `(horizon, target hour)` as well, so a log that was ever edited by hand still cannot double-count.
 
 Replay forecasts are never logged, because recorded 2023 hours can never be graded against today's sensor. Nothing leaves the two CSV files; `Live/` is gitignored.
 

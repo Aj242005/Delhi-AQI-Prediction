@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230b4f6c'/%3E%3Ccircle cx='32' cy='32' r='22' fill='none' stroke='%23ffd200' stroke-width='4'/%3E%3Ctext x='32' y='39' text-anchor='middle' font-family='Arial,sans-serif' font-size='18' font-weight='700' fill='%23f6f3e7'%3EAV%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=Archivo:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+Devanagari:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 /* ============================================================
    ANAND VIHAR AIR BULLETIN
@@ -17,36 +17,37 @@
    ============================================================ */
 
 :root {
-    color-scheme: light;
-    --paper: #f3f0e4;
-    --paper-2: #e9e5d6;
-    --paper-3: #ddd8c5;
-    --card: #fbf9f1;
-    --ink: #12160f;
-    --ink-2: #343b31;
-    --muted: #5f675b;
-    --line: #c9c4b1;
-    --line-2: #a7a390;
-    --blue: #0b4f6c;
-    --blue-deep: #073b51;
-    --blue-night: #052b3c;
-    --on-blue: #f7f4e8;
-    --blue-muted: #b5cdd7;
-    --yellow: #ffd200;
-    --yellow-soft: #fbf1bd;
-    --red: #a12c1c;
-    --green: #22633d;
-    --amber: #8a5a00;
-    --focus: #0b4f6c;
-    --band-good: #1f6b3a;
-    --band-sat: #5c6b00;
-    --band-mod: #8a5a00;
-    --band-poor: #a8400a;
-    --band-vpoor: #9b2a19;
-    --band-severe: #7a1c12;
-    --display: 'Archivo Narrow', 'Archivo', system-ui, sans-serif;
-    --body: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
-    --hindi: 'Noto Sans Devanagari', 'Archivo', sans-serif;
+    color-scheme: dark;
+    --paper: #050811;
+    --paper-2: #0a1120;
+    --paper-3: #0e1729;
+    --card: rgba(15, 23, 42, 0.72);
+    --ink: #f8fafc;
+    --ink-2: #cbd5e1;
+    --muted: #94a3b8;
+    --line: rgba(255, 255, 255, .14);
+    --line-2: rgba(255, 255, 255, .28);
+    --blue: #0b1424;
+    --blue-deep: #08101d;
+    --blue-night: #04070f;
+    --on-blue: #f8fafc;
+    --blue-muted: #9fb3c8;
+    --yellow: #f97316;
+    --yellow-soft: rgba(249, 115, 22, .16);
+    --red: #dc2626;
+    --green: #059669;
+    --amber: #d97706;
+    --focus: #fdba74;
+    --band-good: #34d399;
+    --band-sat: #a3e635;
+    --band-mod: #fbbf24;
+    --band-poor: #fb923c;
+    --band-vpoor: #f87171;
+    --band-severe: #ef4444;
+    --display: 'Space Grotesk', system-ui, sans-serif;
+    --body: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', monospace;
+    --hindi: 'Noto Sans Devanagari', 'Plus Jakarta Sans', sans-serif;
     --wrap: 1240px;
     --pad: clamp(16px, 4vw, 40px);
 }
@@ -1544,9 +1545,217 @@ html { scrollbar-color: var(--line-2) var(--paper); }
         transition-duration: .001ms !important;
     }
 }
+/* ---------- restored night-console theme ---------- */
+
+body {
+    background-color: #050811;
+    color: var(--ink);
+    caret-color: var(--yellow);
+}
+.bg-photo {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: #050811 url('https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=2200&q=85') center / cover no-repeat;
+    filter: brightness(.46) contrast(1.18) saturate(.82);
+}
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: radial-gradient(circle at 34% 18%, rgba(9, 17, 30, .34) 0%, rgba(5, 9, 17, .86) 60%, rgba(3, 5, 10, .96) 100%);
+}
+.utility, .masthead, main, .footer { position: relative; z-index: 2; }
+/* --blue stayed a surface color, so the two places that used it as ink
+   (links and the small caps kicker) take the accent instead. */
+a, .kicker { color: #fb923c; }
+a:hover { color: #fdba74; }
+
+/* Keep the photo a hint at the edges: prose sits on the scrim, not on pixels. */
+.legend, .profiles {
+    background: rgba(7, 13, 24, .72);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 12px;
+    padding: 7px 10px;
+}
+.legend { margin-top: 12px; border-top: 1px solid rgba(255, 255, 255, .12); }
+.profiles { gap: 6px; }
+.profile {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: #cbd5e1;
+}
+.profile:hover { background: rgba(255, 255, 255, .07); color: #fff; }
+.profile[aria-pressed="true"] {
+    background: rgba(249, 115, 22, .18);
+    border-color: rgba(249, 115, 22, .55);
+    color: #fff;
+}
+.utility, .masthead, main, .footer { position: relative; z-index: 1; }
+
+::selection { background: rgba(249, 115, 22, .38); color: #fff; }
+html { scrollbar-color: rgba(255, 255, 255, .26) #050811; }
+
+.utility {
+    background: rgba(4, 8, 15, .84);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--line);
+    color: #94a3b8;
+}
+.util-sep { color: rgba(255, 255, 255, .26); }
+
+.masthead {
+    background: linear-gradient(180deg, rgba(13, 22, 38, .90), rgba(6, 11, 21, .96));
+    border-bottom: 1px solid rgba(249, 115, 22, .5);
+    box-shadow: 0 20px 50px -34px rgba(0, 0, 0, .95);
+}
+.roundel {
+    border-color: rgba(249, 115, 22, .8);
+    background: radial-gradient(circle at 30% 25%, rgba(249, 115, 22, .22), rgba(249, 115, 22, .04));
+    color: #f8fafc;
+}
+.roundel::after { border-color: rgba(255, 255, 255, .22); }
+.station-hindi { color: #fdba74; }
+.mast-code { color: #93a4ba; }
+
+.sourcebar {
+    background: rgba(7, 12, 22, .84);
+    backdrop-filter: blur(22px) saturate(1.08);
+    border-bottom: 1px solid var(--line);
+    box-shadow: 0 16px 40px -32px rgba(0, 0, 0, .95);
+}
+.status-tag {
+    background: rgba(255, 255, 255, .1);
+    color: #f8fafc;
+    border: 1px solid rgba(255, 255, 255, .16);
+}
+.sourcebar[data-source="replay"] .status-tag { background: rgba(129, 140, 248, .16); color: #c7d2fe; border-color: rgba(129, 140, 248, .48); }
+.sourcebar[data-source="live"] .status-tag { background: rgba(16, 185, 129, .16); color: #a7f3d0; border-color: rgba(16, 185, 129, .45); }
+.sourcebar[data-source="warn"] .status-tag { background: rgba(245, 158, 11, .16); color: #fde68a; border-color: rgba(245, 158, 11, .45); }
+.sourcebar[data-source="error"] .status-tag { background: rgba(239, 68, 68, .18); color: #fecaca; border-color: rgba(239, 68, 68, .5); }
+.sourcebar[data-source="loading"] .status-tag { background: rgba(249, 115, 22, .16); color: #fdba74; border-color: rgba(249, 115, 22, .45); }
+
+.seg, .mode-btn, select, .commute-row select {
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid rgba(255, 255, 255, .16);
+    color: var(--ink);
+}
+.mode-btn[aria-pressed="true"] {
+    background: rgba(249, 115, 22, .16);
+    border-color: rgba(249, 115, 22, .55);
+    color: #ffedd5;
+}
+select option { background: #0b1424; color: #f8fafc; }
+
+.hero-main, .terminus, .plan-advice, .plan-two article, .inspect,
+.evidence details, .stat, .table-block, .failure-box {
+    background: linear-gradient(180deg, rgba(16, 26, 43, .76), rgba(8, 14, 26, .82));
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 16px;
+}
+.hero-main, .terminus, .plan-advice, .plan-two article, .inspect,
+.evidence details, .stat, .table-block, .failure-box {
+    padding: clamp(15px, 2vw, 24px);
+}
+.evidence details { padding: 0; }
+.evidence details > summary { padding: clamp(15px, 2vw, 20px); }
+.evidence-body { padding: clamp(6px, 1.4vw, 14px) clamp(15px, 2vw, 20px) clamp(16px, 2vw, 22px); }
+.plan, .departures, .route-section, .footer { border-top-color: rgba(255, 255, 255, .16); }
+.departures > .dep { border-color: rgba(255, 255, 255, .1); }
+.terminus {
+    background: linear-gradient(160deg, rgba(249, 115, 22, .12), rgba(9, 15, 27, .9) 58%);
+    border-color: rgba(249, 115, 22, .38);
+}
+.terminus-code, #terminus-label { color: #fdba74; }
+
+.rail { background: linear-gradient(90deg, rgba(255, 255, 255, .16), rgba(249, 115, 22, .55), rgba(255, 255, 255, .16)); }
+.stop-node { background: #050811; box-shadow: 0 0 0 4px rgba(5, 8, 17, .92); }
+.stop[aria-pressed="true"] { background: rgba(249, 115, 22, .1); border-color: rgba(249, 115, 22, .5); }
+
+.stop-aqi, .terminus-num, .stat-value, .inspect-aqi, .dep strong, .inspect-horizon {
+    font-family: var(--display);
+    font-variant-numeric: tabular-nums;
+}
+
+.profile {
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid rgba(255, 255, 255, .14);
+    color: var(--ink);
+}
+.profile[aria-pressed="true"] {
+    background: rgba(249, 115, 22, .16);
+    border-color: rgba(249, 115, 22, .55);
+    color: #fff7ed;
+}
+.profile small { color: #fdba74; }
+
+.mast-kicker, .kicker, .plan-label, .stat-label, .dep-label, .legend-label,
+.conditions-label, .evidence-tab, .status-tag, .stop-horizon, .util-right,
+.footer-meta, .table-block th {
+    font-family: var(--mono);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+.table-block h3, .section-title, .evidence-summary, .hero-title, .mast-desc strong {
+    font-family: var(--display);
+}
+.legend { color: var(--muted); }
+.legend-item b { color: var(--ink); }
+
+.table-block td, .table-block th { border-color: rgba(255, 255, 255, .1); }
+.table-block .num { font-variant-numeric: tabular-nums; }
+
+.provenance, .caveat, .caveats { border-color: rgba(255, 255, 255, .14); }
+.caveat {
+    background: rgba(249, 115, 22, .07);
+    border: 1px solid rgba(249, 115, 22, .3);
+    border-radius: 12px;
+}
+.provenance code {
+    color: #fdba74;
+    background: rgba(255, 255, 255, .07);
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+.scorecard-gap {
+    margin: 10px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #fde68a;
+}
+
+.btn {
+    background: rgba(255, 255, 255, .06);
+    border: 1px solid rgba(255, 255, 255, .18);
+    color: var(--ink);
+}
+.btn-primary { background: #f97316; border-color: #f97316; color: #1a0d04; }
+
+.footer {
+    background: rgba(4, 8, 15, .9);
+    border-top: 1px solid rgba(255, 255, 255, .12);
+    color: #94a3b8;
+}
+.footer-brand, .footer b { color: #f8fafc; }
+.footer-mark {
+    background: rgba(249, 115, 22, .16);
+    border: 1px solid rgba(249, 115, 22, .5);
+    color: #fdba74;
+}
+
+.failure-box { border-color: rgba(239, 68, 68, .4); }
+#failure-title { color: #fecaca; }
+.failure-detail { background: rgba(0, 0, 0, .45); color: #fca5a5; }
+
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 </style>
 </head>
 <body>
+<div class="bg-photo" aria-hidden="true"></div>
 <a class="skip" href="#main">Skip to the forecast</a>
 
 <div class="utility">
@@ -1785,12 +1994,12 @@ html { scrollbar-color: var(--line-2) var(--paper); }
 'use strict';
 
 const BANDS = [
-    { min: 0, max: 50, name: 'Good', color: '#1f6b3a' },
-    { min: 51, max: 100, name: 'Satisfactory', color: '#5c6b00' },
-    { min: 101, max: 200, name: 'Moderate', color: '#8a5a00' },
-    { min: 201, max: 300, name: 'Poor', color: '#a8400a' },
-    { min: 301, max: 400, name: 'Very poor', color: '#9b2a19' },
-    { min: 401, max: 500, name: 'Severe', color: '#7a1c12' }
+    { min: 0, max: 50, name: 'Good', color: '#34d399' },
+    { min: 51, max: 100, name: 'Satisfactory', color: '#a3e635' },
+    { min: 101, max: 200, name: 'Moderate', color: '#fbbf24' },
+    { min: 201, max: 300, name: 'Poor', color: '#fb923c' },
+    { min: 301, max: 400, name: 'Very poor', color: '#f87171' },
+    { min: 401, max: 500, name: 'Severe', color: '#ef4444' }
 ];
 
 const state = {
@@ -2328,10 +2537,12 @@ function renderScorecardMarkup() {
             <div class="scorecard-head">
                 <span>Graded rows <b>${fmtInt(sc.scored)}</b></span>
                 <span>Awaiting their hour <b>${fmtInt(sc.pending)}</b></span>
+                <span>Passed with no reading <b>${fmtInt(sc.missing)}</b></span>
                 <span>80% coverage <b>${coverage}</b></span>
                 <span>Severe Brier <b>${brier}</b></span>
             </div>
             ${table}
+            ${sc.missing ? `<p class="scorecard-gap">${fmtInt(sc.missing)} forecast hour${sc.missing === 1 ? '' : 's'} passed without a saved reading - the feed or the server was down - so ${sc.missing === 1 ? 'it is' : 'they are'} excluded from these errors rather than scored against a guess.</p>` : ''}
         </div>
         <div class="table-block">
             <h3>Severe-probability reliability</h3>

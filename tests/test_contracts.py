@@ -15,6 +15,8 @@ sys.path.insert(0, BASE_DIR)
 os.environ.setdefault("WAQI_TOKEN", "")
 os.environ.setdefault("RETRAIN_AUTO", "0")
 
+import threading
+
 import numpy as np
 import pandas as pd
 
@@ -133,17 +135,92 @@ class ScorecardScoring(unittest.TestCase):
         # Predicted 0.7, nothing observed severe: Brier = 0.49.
         self.assertAlmostEqual(result["brier"], 0.49, places=2)
 
-    def test_pending_rows_are_counted_not_scored(self):
+    def test_pending_and_missing_are_reported_separately(self):
+        # Hours 01-04 were saved. At 06:00 hour 05 has passed unread while
+        # hours 06-24 are still ahead, so neither may be scored.
+        readings = self.readings.iloc[:4]
+        result = scorecard.score(days=7, path=self.path, readings=readings,
+                                 now=pd.Timestamp("2026-11-18 06:00:00"))
+        self.assertEqual(result["scored"], 8)
+        self.assertEqual(result["missing"], 2)    # hour 05, two horizons
+        self.assertEqual(result["pending"], 38)   # hours 06-24, two horizons each
+
+    def test_long_outage_becomes_missing_not_pending(self):
+        # The feed died after hour 04; a day later the unread hours are
+        # permanently missing rather than still due.
+        readings = self.readings.iloc[:4]
+        result = scorecard.score(days=7, path=self.path, readings=readings,
+                                 now=pd.Timestamp("2026-11-19 01:00:00"))
+        self.assertEqual(result["scored"], 8)
+        self.assertEqual(result["pending"], 0)
+        self.assertEqual(result["missing"], 40)
+
+    def test_missing_rows_are_excluded_from_errors(self):
         readings = self.readings.iloc[:12]
-        result = scorecard.score(days=7, path=self.path, readings=readings)
+        result = scorecard.score(days=7, path=self.path,
+                                 readings=readings, now=pd.Timestamp("2026-11-18 23:00:00"))
         self.assertEqual(result["scored"], 24)
-        self.assertEqual(result["pending"], 24)
+        self.assertEqual(result["pending"], 4)    # hours 23 and 24
+        self.assertEqual(result["missing"], 20)   # hours 13-22
 
     def test_empty_log_is_honest(self):
         empty = os.path.join(self.dir, "none.csv")
         result = scorecard.score(days=7, path=empty, readings=self.readings)
         self.assertEqual(result["scored"], 0)
         self.assertTrue(result["note"])
+
+
+class ForecastLogHygiene(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.path = os.path.join(self.dir, "forecast_log.csv")
+        base = pd.Timestamp("2026-11-17T00:00:00")
+        self.wave = [
+            {"horizon": f"+{h}h", "iso": (base + pd.Timedelta(hours=h)).isoformat(), "aqi": 300 + h}
+            for h in (4, 8, 12, 16, 20, 24)
+        ]
+
+    def test_concurrent_requests_write_each_target_once(self):
+        threads = [threading.Thread(target=scorecard.log_issue,
+                                    args=(self.wave, 320),
+                                    kwargs={"path": self.path}) for _ in range(12)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        self.assertEqual(len(scorecard.load(self.path)), 6)
+
+    def test_repeated_issue_does_not_double_count(self):
+        for _ in range(5):
+            scorecard.log_issue(self.wave, 320, path=self.path)
+        rows = scorecard.load(self.path)
+        self.assertEqual(len(rows), 6)
+        self.assertEqual(len(rows.drop_duplicates(subset=["horizon", "target_iso"])), 6)
+
+    def test_file_is_not_reparsed_while_unchanged(self):
+        scorecard.log_issue(self.wave, 320, path=self.path)
+        first = scorecard.load(self.path)
+        second = scorecard.load(self.path)
+        self.assertIs(first, second)  # same cached frame, no second read
+
+    def test_rows_past_retention_are_pruned(self):
+        original = scorecard.RETENTION_DAYS
+        scorecard.RETENTION_DAYS = 2
+        try:
+            old = pd.DataFrame([{
+                "issued_utc": "2026-01-01 00:00:00", "mode": "live_ground",
+                "horizon": "+4h", "lead_hours": 4,
+                "target_iso": "2026-01-01T04:00:00", "base_aqi": 300, "pred": 320,
+                "pi_low": "", "pi_high": "", "severe_pct": "", "trained_at": "t0",
+            }], columns=scorecard.COLUMNS)
+            old.to_csv(self.path, index=False)
+            scorecard._CACHE.pop(self.path, None)
+            scorecard.log_issue(self.wave, 320, path=self.path)
+            rows = scorecard.load(self.path)
+            self.assertEqual(len(rows), 6)
+            self.assertGreater(rows["target_iso"].min(), pd.Timestamp("2026-11-01"))
+        finally:
+            scorecard.RETENTION_DAYS = original
 
 
 class RetrainDueRules(unittest.TestCase):
