@@ -55,10 +55,14 @@ python build_dataset.py
 The script performs the same four stages as the notebooks and prints row counts plus the output SHA-256.
 
 ### Live mode (optional)
-Live mode needs a free WAQI token:
+Live mode needs a free WAQI token. You can keep it in the gitignored `.env` file or set it in the shell:
 
 ```powershell
-$env:WAQI_TOKEN = "your-token"     # PowerShell
+# Option A: WAQI_TOKEN=your-token in .env, then:
+python server.py
+
+# Option B: current shell only
+$env:WAQI_TOKEN = "your-token"
 python server.py
 ```
 
@@ -70,6 +74,8 @@ python ground_logger.py --status
 ```
 
 The server saves one real reading per hour while it runs. The forecast unlocks after **49 hourly rows** exist (48 hours of history plus the current hour); until then the UI shows the current reading and a collection progress bar. This cold start is inherent: the model uses 48-hour lag and rolling features.
+
+Once ready, every new hourly reading moves the 49-hour input window forward by one hour and the model recomputes the full +4h to +24h line from the latest reading. This is a **sliding window**, not a once-a-day batch: there is no day boundary or "window expired" wait. While the page is open in live mode it refetches every 5 minutes, so a newly saved hour appears without a reload.
 
 Without a token the UI automatically starts in **Replay** mode, so the full forecast and advisory flow can still be demonstrated.
 

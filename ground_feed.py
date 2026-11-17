@@ -40,6 +40,27 @@ logger = logging.getLogger("ground_feed")
 STATION_ID = "@2553"                      # DPCC Anand Vihar, Delhi on WAQI
 LAT, LON = 28.6469, 77.3160
 _BASE = os.path.dirname(os.path.abspath(__file__))
+
+
+def _load_env_file(path):
+    """Read KEY=VALUE pairs from a local .env file without overriding real env vars."""
+    if not os.path.exists(path):
+        return
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key, value = key.strip(), value.strip().strip('"').strip("'")
+                if key:
+                    os.environ.setdefault(key, value)
+    except OSError:
+        pass
+
+
+_load_env_file(os.path.join(_BASE, ".env"))
 LOG_PATH = os.environ.get("GROUND_LOG_PATH", os.path.join(_BASE, "Live", "ground_log.csv"))
 PM25_SCHEME = os.environ.get("WAQI_PM25_SCHEME", "epa2012").strip().lower()
 

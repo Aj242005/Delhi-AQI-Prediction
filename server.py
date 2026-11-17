@@ -26,7 +26,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ANAND_VIHAR_LAT = 28.6469
 ANAND_VIHAR_LON = 77.3160
 
-# The WAQI token is read ONLY from an environment variable - never write it into this file.
+# The WAQI token is read from the environment or a local .env file - never commit it.
+#   .env file:        WAQI_TOKEN=your-token
 #   PowerShell:       $env:WAQI_TOKEN = "your-token"
 #   Anaconda Prompt:  set WAQI_TOKEN=your-token
 WAQI_TOKEN = os.environ.get("WAQI_TOKEN", "").strip()

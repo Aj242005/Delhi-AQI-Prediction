@@ -13,6 +13,9 @@ __pycache__/
 # Local live ground-sensor readings
 Live/
 
+# Local secrets (WAQI token)
+.env
+
 # Research material
 minor project research papers/
 
