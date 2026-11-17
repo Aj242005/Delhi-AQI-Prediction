@@ -3,8 +3,8 @@ ground_feed.py - live ground-sensor feed for DPCC Anand Vihar (WAQI station @255
 
 What this file does, in plain words
 -----------------------------------
-1. Once an hour (really: every 20 minutes, duplicates are ignored) it asks the
-   WAQI service for the latest reading of the Anand Vihar ground station.
+1. Every few minutes it asks the WAQI service for the latest reading of the
+   Anand Vihar ground station; duplicate hours are ignored.
 2. It converts that reading into the Indian CPCB AQI - the same scale the
    forecasting model was trained on - and saves it as one row in
    Live/ground_log.csv.
@@ -67,7 +67,7 @@ PM25_SCHEME = os.environ.get("WAQI_PM25_SCHEME", "epa2012").strip().lower()
 WINDOW_HOURS = 49        # the model looks back 48 h -> needs 49 hourly rows
 MAX_INTERP_GAP = 3       # fill up to 3 missing hours in a row (straight line)
 MAX_STALE_HOURS = 3      # newest reading older than this = feed not updating
-POLL_SECONDS = 20 * 60
+POLL_SECONDS = 5 * 60
 
 # Used only if no weather could be fetched at all (training-set averages).
 WEATHER_DEFAULTS = {"Temp_C": 24.0, "Humidity": 65.0, "Wind_Speed": 9.3}

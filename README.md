@@ -28,6 +28,7 @@ server.py                 FastAPI backend, model loading, health-advisory engine
 index.html                Single-page frontend (served by server.py)
 ground_feed.py            Live WAQI polling, unit conversion, 49-hour window builder
 ground_logger.py          Optional stand-alone live logger / diagnostics
+retrain.py                Occasionally refit the models on timestamped live data
 build_dataset.py          Reproducible data pipeline (raw table -> ml_ready_data.csv)
 Dataset/                  Raw AQI table, cached weather, model-ready features
 Models/                   Native XGBoost JSON models + model_metadata.json
@@ -73,11 +74,38 @@ python ground_logger.py --check
 python ground_logger.py --status
 ```
 
-The server saves one real reading per hour while it runs. The forecast unlocks after **49 hourly rows** exist (48 hours of history plus the current hour); until then the UI shows the current reading and a collection progress bar. This cold start is inherent: the model uses 48-hour lag and rolling features.
+The server polls WAQI every 5 minutes and saves one real reading per hour while it runs. The forecast unlocks after **49 hourly rows** exist (48 hours of history plus the current hour); until then the UI shows the current reading and a collection progress bar. This cold start is inherent: the model uses 48-hour lag and rolling features.
 
 Once ready, every new hourly reading moves the 49-hour input window forward by one hour and the model recomputes the full +4h to +24h line from the latest reading. This is a **sliding window**, not a once-a-day batch: there is no day boundary or "window expired" wait. While the page is open in live mode it refetches every 5 minutes, so a newly saved hour appears without a reload.
 
 Without a token the UI automatically starts in **Replay** mode, so the full forecast and advisory flow can still be demonstrated.
+
+### Retraining on live data
+Every saved live reading carries its own timestamp in `Live/ground_log.csv`, so the live record can be folded back into training without guessing when a row was captured. The retraining tool is deliberately conservative:
+
+```powershell
+python retrain.py --if-due          # run only when enough new live data exists
+python retrain.py --dry-run         # train and report, write nothing
+python retrain.py --no-promote      # write candidates, keep the live models
+python retrain.py --force-promote   # bypass the quality gate (not recommended)
+```
+
+`--if-due` waits for **720 hourly readings** (about 30 days) and then runs at most once every 7 days, provided at least 168 new readings arrived. A run:
+
+1. Builds features per contiguous live segment. Gaps larger than 3 hours split a segment; the 2023 to 2026 gap is never interpolated.
+2. Trains the six horizon models and the severe-day classifier on historical data plus the early live record, giving live rows a 5x sample weight.
+3. Validates on the next live slice and tests on the most recent live slice, with a 24-hour purge between slices.
+4. Calibrates the 80% interval and severe probability on live validation data.
+5. Promotes only if the candidate beats 24-hour persistence, keeps 80% interval coverage between 60% and 95%, and (when severe hours exist in the test slice) reaches at least 45% severe recall.
+6. Backs up the previous `Models/*.json`, writes the candidate under `Models/candidates/`, and calls `POST /api/reload_models` so a running server picks it up.
+
+The first meaningful retrain cannot happen until roughly a month of live readings exists; the forecast itself only needs 49 hourly rows. To run the check periodically, point Windows Task Scheduler (or cron) at:
+
+```powershell
+python retrain.py --if-due
+```
+
+Candidate and backup folders are local and ignored by git. The promoted `model_metadata.json` records the live data range, sample weight, split labels, and gate result, so the UI evidence section describes the actual bundle in use.
 
 ## API
 | Endpoint | Purpose |
@@ -86,11 +114,12 @@ Without a token the UI automatically starts in **Replay** mode, so the full fore
 | `GET /api/predict?mode=archive_2023&archive_idx=7400&profile=Child%20(Under%2012)` | Replay forecast from a recorded 2023 window |
 | `GET /api/live_status` | Token status, saved rows, window readiness, last poll |
 | `GET /health` | Liveness + model/dataset status |
+| `POST /api/reload_models` | Reload promoted model files without restarting the server |
 
 Profiles: `Healthy Adult`, `Child (Under 12)`, `Elderly (60+ Years)`, `Asthma Patient`, `Outdoor Worker`.
 
 ## Model & Validation Snapshot
-The current bundle (`Models/model_metadata.json`) used a strict chronological split:
+The current shipped bundle (`Models/model_metadata.json`) used a strict chronological split. It was trained before live 2026 readings existed; `retrain.py` replaces it only after a candidate passes the promotion gate.
 
 * Train: 2017–2021 (36,838 rows)
 * Validation/calibration: 2022 (8,760 rows, 8,153 real)
@@ -112,7 +141,8 @@ Severe-day classifier (2023 test): recall 0.812, precision 0.512, F1 0.628. The 
 * One station (Anand Vihar); this is not a city-wide forecast.
 * Live WAQI values are converted to CPCB AQI and can differ slightly from the official CPCB bulletin.
 * Live expectations assume the server stays running so hourly readings are saved; gaps pause the forecast rather than silently filling long periods.
+* The live forecast unlocks after 49 hourly readings; retraining waits for about 30 days of live data. Neither can be backfilled from the free WAQI feed.
 * Advisories are informational, not medical advice.
 
 ## Current Status
-The full pipeline is implemented end to end: reproducible dataset build, trained multi-horizon models, calibrated severe-day risk, FastAPI backend, live sensor logger, replay mode, and the responsive advisory UI. The remaining external dependency for live operation is a WAQI API token.
+The full pipeline is implemented end to end: reproducible dataset build, trained multi-horizon models, calibrated severe-day risk, FastAPI backend, live sensor logger, timestamped live retraining, replay mode, and the responsive advisory UI. The shipped models are still the 2023-trained bundle until enough live readings accumulate and a retrained candidate passes the promotion gate.

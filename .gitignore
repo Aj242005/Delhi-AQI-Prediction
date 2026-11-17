@@ -13,6 +13,11 @@ __pycache__/
 # Local live ground-sensor readings
 Live/
 
+# Retraining artifacts (candidates, backups, scheduling state)
+Models/candidates/
+Models/backups/
+Models/retrain_state.json
+
 # Local secrets (WAQI token)
 .env
 

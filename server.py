@@ -53,6 +53,18 @@ def get_cpcb_meta(aqi):
         return "Severe (401–500)", "#dc2626", "Severe Smog Emergency (>400)"
 
 
+def calibration_dict(meta):
+    """Support both the original 2023 metadata and retrained live metadata."""
+    return meta.get("val_calibration") or meta.get("val_2022_calibration") or {}
+
+
+def calibration_coverage(cal):
+    value = cal.get("test_empirical_coverage_pct")
+    if value is None:
+        value = cal.get("test_2023_empirical_coverage_pct")
+    return value
+
+
 def format_chance_phrase(cal_prob_pct, pred_24h, is_triggered):
     """Plain-language severe-day phrase. The wording always matches the calibrated percentage shown."""
     p = float(cal_prob_pct)
@@ -270,7 +282,7 @@ def _not_ready_payload(state, profile):
         "current_aqi": cur_aqi, "cur_cat": cur_cat, "cur_col": cur_col, "headline": headline,
         "dual_sub": "", "advisory": advisory,
         "temp": wx["temp"], "humidity": wx["humidity"], "wind": wx["wind"],
-        "coverage_2023_pct": metadata["val_2022_calibration"].get("test_2023_empirical_coverage_pct"),
+        "coverage_test_pct": calibration_coverage(calibration_dict(metadata)),
         "metadata": metadata,
     }
 
@@ -288,7 +300,7 @@ def predict_aqi(
     meta = metadata
     feature_cols = meta["feature_cols"]
     horizons = meta["horizons"]
-    val_cal = meta["val_2022_calibration"]
+    val_cal = calibration_dict(meta)
 
     replay_label = ""
     reading_time_str = ""
@@ -468,7 +480,8 @@ def predict_aqi(
         "spread_low": spread_low,
         "spread_high": spread_high,
         "mae_val": round(mae_val, 1),
-        "coverage_2023_pct": val_cal["test_2023_empirical_coverage_pct"],
+        "coverage_test_pct": calibration_coverage(val_cal),
+        "eval_label": meta.get("eval_label", "2023 test"),
         "rolling_24": round(feat_dict["Rolling_Mean_24"]),
         "temp": round(feat_dict["Temp_C"], 1),
         "humidity": round(feat_dict["Humidity"]),
@@ -494,6 +507,23 @@ def health():
         "horizon_models_loaded": len(horizon_boosters),
         "severe_model_loaded": severe_booster is not None,
         "waqi_token_set": ground_feed.has_token(WAQI_TOKEN),
+        "trained_at_utc": metadata.get("trained_at_utc"),
+        "training_data_end": metadata.get("data_end"),
+        "live_training_rows": (metadata.get("live_data") or {}).get("rows"),
+    })
+
+
+@app.post("/api/reload_models")
+def reload_models():
+    """Reload Models/ after retrain.py promotes a candidate (local use only)."""
+    global metadata, horizon_boosters, severe_booster
+    metadata, horizon_boosters, severe_booster = load_bundle_state()
+    logger.info("Reloaded models trained at %s", metadata.get("trained_at_utc"))
+    return JSONResponse({
+        "reloaded": True,
+        "trained_at_utc": metadata.get("trained_at_utc"),
+        "horizon_models_loaded": len(horizon_boosters),
+        "severe_model_loaded": severe_booster is not None,
     })
 
 

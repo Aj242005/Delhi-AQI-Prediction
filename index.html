@@ -1723,13 +1723,15 @@ function bandWord(name) {
 }
 
 function fmtInt(value) {
+    if (value === null || value === undefined || value === '') return '-';
     const n = Number(value);
-    return Number.isFinite(n) ? String(Math.round(n)) : '—';
+    return Number.isFinite(n) ? String(Math.round(n)) : '-';
 }
 
 function fmtDecimal(value, digits) {
+    if (value === null || value === undefined || value === '') return '-';
     const n = Number(value);
-    return Number.isFinite(n) ? n.toFixed(digits === undefined ? 1 : digits) : '—';
+    return Number.isFinite(n) ? n.toFixed(digits === undefined ? 1 : digits) : '-';
 }
 
 function numText(value, suffix, digits) {
@@ -2080,6 +2082,7 @@ function renderWaiting(d) {
 }
 
 function pctText(value) {
+    if (value === null || value === undefined || value === '') return '—';
     const n = Number(value);
     return Number.isFinite(n) ? (n * 100).toFixed(1) : '—';
 }
@@ -2092,12 +2095,15 @@ function renderEvidence(meta) {
     const severe = Array.isArray(meta.severe_classification_metrics) ? meta.severe_classification_metrics : [];
     const rc = meta.row_counts || {};
     const lv = meta.library_versions || {};
-    const cal = meta.val_2022_calibration || {};
+    const cal = meta.val_calibration || meta.val_2022_calibration || {};
+    const evalLabel = meta.eval_label || '2023 test';
+    const valLabel = meta.val_label || '2022 validation';
+    const evalSplit = meta.eval_split || '2023 Test';
 
     const xgb = regression.find((row) => String(row.Model || '').includes('XGBoost'));
-    const dedicated = severe.find((row) => String(row.Method || '').includes('Dedicated') && row['Eval Split'] === '2023 Test');
+    const dedicated = severe.find((row) => String(row.Method || '').includes('Dedicated') && row['Eval Split'] === evalSplit);
     const h24 = horizons.find((row) => String(row.Horizon || '').includes('+24'));
-    const coverage = cal.test_2023_empirical_coverage_pct;
+    const coverage = cal.test_empirical_coverage_pct ?? cal.test_2023_empirical_coverage_pct;
     const recall = dedicated ? dedicated['Recall (Sensitivity)'] : null;
     const precision = dedicated ? dedicated.Precision : null;
 
@@ -2117,18 +2123,20 @@ function renderEvidence(meta) {
 
     const regressionRows = regression.map((row) => {
         const focus = String(row.Model || '').includes('XGBoost');
+        const rmseAll = row['RMSE (All)'] ?? row['RMSE (All 2023)'];
+        const spread = row['Seed Spread (SD)'] ?? row['5-Seed Spread (SD)'] ?? '—';
         return `<tr class="${focus ? 'is-focus' : ''}">
             <td>${esc(row.Model)}</td>
-            <td class="num">${fmtDecimal(row['RMSE (All 2023)'], 1)}</td>
+            <td class="num">${fmtDecimal(rmseAll, 1)}</td>
             <td class="num">${fmtDecimal(row['RMSE (Real Only)'], 1)}</td>
             <td class="num">${fmtDecimal(row['MAE (Real Only)'], 1)}</td>
             <td class="num">${fmtDecimal(row['R2 (Real Only)'], 3)}</td>
-            <td class="num">${esc(row['5-Seed Spread (SD)'])}</td>
+            <td class="num">${esc(spread)}</td>
         </tr>`;
     }).join('');
 
     const severeRows = severe.map((row) => {
-        const focus = String(row.Method || '').includes('Dedicated') && row['Eval Split'] === '2023 Test';
+        const focus = String(row.Method || '').includes('Dedicated') && row['Eval Split'] === evalSplit;
         return `<tr class="${focus ? 'is-focus' : ''}">
             <td>${esc(row.Method)}</td>
             <td>${esc(row['Eval Split'])}</td>
@@ -2142,18 +2150,38 @@ function renderEvidence(meta) {
 
     const readiness = state.health ? `<p><b>Service readiness.</b> Replay dataset ${state.health.replay_dataset_loaded ? 'loaded' : 'missing'} · ${fmtInt(state.health.horizon_models_loaded)} horizon models · severe classifier ${state.health.severe_model_loaded ? 'loaded' : 'missing'} · WAQI token ${state.health.waqi_token_set ? 'configured' : 'not set'}.</p>` : '';
 
+    const live = meta.live_data;
+    const liveNote = live ? `<div class="caveat">
+        <strong>Live data in training.</strong>
+        <span>${fmtInt(live.rows)} timestamped live readings (${esc(live.start)} to ${esc(live.end)}) are included with a ${fmtDecimal(live.weight, 1)}× sample weight. ${fmtInt(live.feature_rows)} feature rows survived the 48-hour warm-up and gap checks across ${fmtInt(live.segments)} contiguous segment(s).</span>
+    </div>` : '';
+
+    const rowsTotal = fmtInt(rc.total);
+    const trainRows = fmtInt(rc.train ?? rc.train_2017_2021);
+    const valReal = fmtInt(rc.val_real ?? rc.val_2022_real);
+    const valTotal = fmtInt(rc.val_total ?? rc.val_2022_total);
+    const testReal = fmtInt(rc.test_real ?? rc.test_2023_real);
+    const testTotal = fmtInt(rc.test_total ?? rc.test_2023_total);
+    const splitLine = meta.split ? `<p><b>Split.</b> ${esc(meta.split.train)} · ${esc(meta.split.val)} · ${esc(meta.split.test)}. A ${fmtInt(meta.split.purge_hours)}-hour purge separates adjacent slices.</p>` : '';
+    const brierCal = cal.brier_score_test_calibrated ?? cal.brier_score_2023_calibrated;
+    const brierRaw = cal.brier_score_test_uncalibrated ?? cal.brier_score_2023_uncalibrated;
+    const hasBrierCal = brierCal !== null && brierCal !== undefined;
+    const probabilityNote = hasBrierCal
+        ? `Brier score ${fmtDecimal(brierCal, 3)} calibrated vs ${fmtDecimal(brierRaw, 3)} uncalibrated on ${esc(evalLabel)}; lower is better.`
+        : `Severe-day probability stayed uncalibrated because ${esc(valLabel)} had too few severe hours; raw Brier score ${fmtDecimal(brierRaw, 3)} on ${esc(evalLabel)}.`;
+
     $('evidence-body').innerHTML = `
         <div class="stat-row">
-            ${statCard('+24h MAE', fmtDecimal(xgb ? xgb['MAE (Real Only)'] : null, 1), 'AQI', '2023 test, real readings only')}
-            ${statCard('80% interval coverage', fmtDecimal(coverage, 1), '%', 'Empirical on 2023 test; target is 80%')}
-            ${statCard('Severe recall', pctText(recall), '%', `At ${pctText(precision)}% precision · 2023 test`)}
+            ${statCard('+24h MAE', fmtDecimal(xgb ? xgb['MAE (Real Only)'] : null, 1), 'AQI', `${evalLabel}, real readings only`)}
+            ${statCard('80% interval coverage', fmtDecimal(coverage, 1), '%', `Empirical on ${evalLabel}; target is 80%`)}
+            ${statCard('Severe recall', pctText(recall), '%', `At ${pctText(precision)}% precision · ${evalLabel}`)}
             ${statCard('+24h skill', esc(h24 ? h24['Skill vs Persistence'] : '—'), '', 'RMSE gain vs 24h persistence')}
         </div>
 
         <div class="table-grid">
             <div class="table-block">
                 <h3>Forecast skill by horizon</h3>
-                <p class="table-sub">2023 test set, real readings only. Lower error is better.</p>
+                <p class="table-sub">${esc(evalLabel)}, real readings only. Lower error is better.</p>
                 <div class="table-scroll">
                     <table>
                         <thead><tr><th>Horizon</th><th class="num">MAE</th><th class="num">XGB RMSE</th><th class="num">Persistence</th><th class="num">Skill</th></tr></thead>
@@ -2164,7 +2192,7 @@ function renderEvidence(meta) {
 
             <div class="table-block">
                 <h3>Model comparison</h3>
-                <p class="table-sub">+24h forecast, 2023 test set. The highlighted row is the shipped model.</p>
+                <p class="table-sub">+24h forecast, ${esc(evalLabel)}. The highlighted row is the shipped model.</p>
                 <div class="table-scroll">
                     <table>
                         <thead><tr><th>Model</th><th class="num">RMSE all</th><th class="num">RMSE real</th><th class="num">MAE real</th><th class="num">R²</th><th class="num">Seed SD</th></tr></thead>
@@ -2186,24 +2214,22 @@ function renderEvidence(meta) {
         </div>
 
         <div class="provenance">
-            <p><b>Operating record.</b> Trained ${esc(meta.trained_at_utc)} · ${fmtInt(rc.total)} hourly rows · train 2017–2021 ${fmtInt(rc.train_2017_2021)} · 2022 validation ${fmtInt(rc.val_2022_real)} real of ${fmtInt(rc.val_2022_total)} · 2023 test ${fmtInt(rc.test_2023_real)} real of ${fmtInt(rc.test_2023_total)}.</p>
-            <p><b>Snapshot.</b> Recorded dataset SHA-256 <code>${esc(String(meta.dataset_sha256 || '').slice(0, 16))}…</code> · XGBoost ${esc(lv.xgboost)} · scikit-learn ${esc(lv.scikit_learn)} · pandas ${esc(lv.pandas)} · numpy ${esc(lv.numpy)}.</p>
-            <p><b>Intervals and probability.</b> 80% band built from 2022 validation errors (${fmtDecimal(cal.q10_err, 1)} to +${fmtDecimal(cal.q90_err, 1)} AQI) and isotonic-calibrated severe-day probability. Brier score ${fmtDecimal(cal.brier_score_2023_calibrated, 3)} calibrated vs ${fmtDecimal(cal.brier_score_2023_uncalibrated, 3)} uncalibrated on 2023 test; lower is better.</p>
+            <p><b>Operating record.</b> Trained ${esc(meta.trained_at_utc)} · ${rowsTotal} hourly rows · train ${trainRows} · ${esc(valLabel)}: ${valReal} real of ${valTotal} · ${esc(evalLabel)}: ${testReal} real of ${testTotal}.</p>
+            ${splitLine}
+            <p><b>Snapshot.</b> Historical file SHA-256 <code>${esc(String(meta.dataset_sha256 || '').slice(0, 16))}…</code> · trained through ${esc(meta.data_end || '2023-12')} · XGBoost ${esc(lv.xgboost)} · scikit-learn ${esc(lv.scikit_learn)} · pandas ${esc(lv.pandas)} · numpy ${esc(lv.numpy)}.</p>
+            <p><b>Intervals and probability.</b> 80% band built from ${esc(valLabel)} errors (${fmtDecimal(cal.q10_err, 1)} to +${fmtDecimal(cal.q90_err, 1)} AQI). ${probabilityNote}</p>
             ${readiness}
         </div>
 
-        <div class="caveat">
-            <strong>Dataset drift.</strong>
-            <span>The model metadata records a 54,310-row snapshot. The rebuilt file now has 54,334 rows because the upstream OpenCity resource later added 31 Dec 2023. The shipped model JSON files and their metrics are unchanged; the extra day changes the data file, not the trained weights.</span>
-        </div>
+        ${liveNote}
 
         <ul class="caveats">
             <li>Single station: this is DPCC Anand Vihar, not a city-wide average.</li>
             <li>AQI is capped at 500; uncapped model output is noted where it matters.</li>
             <li>Live WAQI readings can differ from the official CPCB bulletin.</li>
-            <li>Replay windows are recorded 2023 data, never today’s air.</li>
+            <li>Replay windows are recorded 2023 data, never today's air.</li>
             <li>Not medical advice; follow a clinician for personal decisions.</li>
-            <li>Validated on 2022–2023, not on this morning’s conditions.</li>
+            <li>Validated on ${esc(meta.validation_period || '2022–2023')}, not on this morning's conditions.</li>
         </ul>`;
 }
 
