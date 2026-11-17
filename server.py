@@ -77,7 +77,19 @@ MODELS_DIR = os.path.join(BASE_DIR, "Models")
 META_PATH = os.path.join(MODELS_DIR, "model_metadata.json")
 DATA_PATH = os.path.join(BASE_DIR, "Dataset", "ml_ready_data.csv")
 
-df_hist = pd.read_csv(DATA_PATH, parse_dates=["Datetime"])
+
+def load_history():
+    """Replay data is optional at import time: live mode can run without it."""
+    if not os.path.exists(DATA_PATH):
+        logger.warning("Replay dataset not found at %s - run 'python build_dataset.py' to create it.", DATA_PATH)
+        return None
+    df = pd.read_csv(DATA_PATH, parse_dates=["Datetime"])
+    logger.info("Loaded replay history: %d rows (%s to %s)", len(df),
+                df["Datetime"].min(), df["Datetime"].max())
+    return df
+
+
+df_hist = load_history()
 
 
 def load_bundle_state():
@@ -253,6 +265,7 @@ def _not_ready_payload(state, profile):
         "source_warning_level": level, "source_banner": banner, "source_mode": "live_ground",
         "forecast_available": False, "collect_have": have, "collect_need": need, "collect_note": note,
         "is_replay": False, "replay_label": "", "reading_time": latest_str if show_cur else "",
+        "current_time_iso": (state["latest"].isoformat() if show_cur else ""),
         "current_aqi": cur_aqi, "cur_cat": cur_cat, "cur_col": cur_col, "headline": headline,
         "dual_sub": "", "advisory": advisory,
         "temp": wx["temp"], "humidity": wx["humidity"], "wind": wx["wind"],
@@ -319,6 +332,11 @@ def predict_aqi(
         dual_sub = " • ".join(parts)
     else:
         mode = "archive_2023"
+        if df_hist is None or df_hist.empty:
+            return JSONResponse(status_code=503, content={
+                "detail": ("Replay dataset is missing. Run 'python build_dataset.py' in the project "
+                           "folder (it rebuilds Dataset/ml_ready_data.csv), then restart the server.")
+            })
         df_2023 = df_hist[df_hist["Datetime"].dt.year == 2023].reset_index(drop=True)
         safe_idx = max(50, min(int(archive_idx), len(df_2023) - 25))
         df_past = df_2023.iloc[safe_idx - 48: safe_idx + 1][["Datetime", "AQI", "Temp_C", "Humidity", "Wind_Speed"]].reset_index(drop=True)
@@ -365,6 +383,7 @@ def predict_aqi(
         wave_points.append({
             "horizon": f"+{h}h",
             "time": target_time.strftime("%I %p"),
+            "iso": target_time.isoformat(),
             "aqi": int(round(pred_h))
         })
 
@@ -376,16 +395,21 @@ def predict_aqi(
     worst_hour = wave_points[int(np.argmax(horizon_aqis))]["time"] + f" ({wave_points[int(np.argmax(horizon_aqis))]['horizon']})"
 
     severe_prob_str = "Not Available"
+    severe_prob_pct = None
+    severe_triggered = False
     if severe_booster is not None:
         raw_score = float(severe_booster.predict(dmat_now)[0])
         thresh = float(val_cal["severe_prob_threshold"])
         is_triggered = (raw_score >= thresh)
+        severe_triggered = bool(is_triggered)
         iso_x = val_cal.get("isotonic_x_thresholds")
         iso_y = val_cal.get("isotonic_y_thresholds")
         if iso_x and iso_y:
             cal_prob = float(np.interp(raw_score, iso_x, iso_y)) * 100.0
+            severe_prob_pct = round(cal_prob, 1)
             severe_prob_str = format_chance_phrase(cal_prob, pred_24h, is_triggered)
         else:
+            severe_prob_pct = round(raw_score * 100.0, 1)
             severe_prob_str = f"Risk Score: {raw_score:.2f} (Cutoff: {thresh:.2f})"
 
     q10_err = float(val_cal["q10_err"])
@@ -420,6 +444,7 @@ def predict_aqi(
         "is_replay": bool(replay_label),
         "replay_label": replay_label,
         "reading_time": reading_time_str or current_dt.strftime("%d %b %Y, %H:%M IST"),
+        "current_time_iso": current_dt.isoformat(),
         "current_aqi": round(current_aqi),
         "dual_sub": dual_sub,
         "cur_cat": cur_cat,
@@ -429,12 +454,18 @@ def predict_aqi(
         "pred_cat": pred_cat,
         "pred_col": pred_col,
         "severe_prob_str": severe_prob_str,
+        "severe_prob_pct": severe_prob_pct,
+        "severe_triggered": severe_triggered,
         "peak_24h": round(peak_24h),
         "min_24h": round(min_24h),
         "best_hour": best_hour,
         "worst_hour": worst_hour,
         "pi80_label": pi80_label,
+        "pi80_low": pi80_low,
+        "pi80_high": pi80_high,
         "spread_label": spread_label,
+        "spread_low": spread_low,
+        "spread_high": spread_high,
         "mae_val": round(mae_val, 1),
         "coverage_2023_pct": val_cal["test_2023_empirical_coverage_pct"],
         "rolling_24": round(feat_dict["Rolling_Mean_24"]),
@@ -451,6 +482,18 @@ def predict_aqi(
 def live_status():
     """Quick health check for the live feed - open http://127.0.0.1:8000/api/live_status"""
     return JSONResponse(ground_feed.status(WAQI_TOKEN))
+
+
+@app.get("/health")
+def health():
+    """Liveness/readiness summary used by the UI and local checks."""
+    return JSONResponse({
+        "status": "ok",
+        "replay_dataset_loaded": df_hist is not None and not df_hist.empty,
+        "horizon_models_loaded": len(horizon_boosters),
+        "severe_model_loaded": severe_booster is not None,
+        "waqi_token_set": ground_feed.has_token(WAQI_TOKEN),
+    })
 
 
 @app.get("/", response_class=HTMLResponse)

@@ -1,3 +1,20 @@
+# Generated/intermediate data stays local. The three files the app needs to run
+# from a fresh clone are explicitly whitelisted below.
 *.csv
+!Dataset/original_data.csv
+!Dataset/anand_vihar_weather_2017_2023.csv
+!Dataset/ml_ready_data.csv
+
+# Python / notebook noise
+__pycache__/
+*.py[cod]
 .ipynb_checkpoints/
+
+# Local live ground-sensor readings
+Live/
+
+# Research material
 minor project research papers/
+
+# Local design notes from the redesign pass
+.impeccable/
