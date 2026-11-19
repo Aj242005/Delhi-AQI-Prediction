@@ -29,3 +29,6 @@ minor project research papers/
 
 # Local design notes from the redesign pass
 .impeccable/
+
+.vercel
+.env*
