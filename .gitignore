@@ -10,8 +10,11 @@ __pycache__/
 *.py[cod]
 .ipynb_checkpoints/
 
-# Local live ground-sensor readings
-Live/
+# Local live ground-sensor readings. The CAMS hour cache ships with the repo
+# so a host that cannot reach Open-Meteo still starts with a full 49-hour
+# window - public data, no tokens in it.
+Live/*
+!Live/reanalysis_seed.csv
 
 # Retraining artifacts (candidates, backups, scheduling state)
 Models/candidates/

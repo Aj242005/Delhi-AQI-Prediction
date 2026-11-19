@@ -374,6 +374,29 @@ class SeededWindow(unittest.TestCase):
         ground_feed.refresh_seed(path, now=pd.Timestamp("2026-11-18 04:00"), air_fetch=air, weather_fetch=wx)
         self.assertEqual(calls["n"], 2)
 
+    def test_failed_fetch_is_not_retried_every_request(self):
+        ground_feed._SEED_FAILED_AT = None
+        self.addCleanup(setattr, ground_feed, "_SEED_FAILED_AT", None)
+        path = os.path.join(self.tmp, "seed.csv")
+        ground_feed.refresh_seed(path, now=pd.Timestamp("2026-11-18 01:30"),
+                                 air_fetch=lambda: self.seed()[["Datetime", "seed_aqi"]].assign(
+                                     seed_pm25=90.0, seed_pm10=300.0),
+                                 weather_fetch=lambda: self.seed()[["Datetime"]].assign(
+                                     Temp_C=18.0, Humidity=70.0, Wind_Speed=3.0))
+        calls = {"n": 0}
+
+        def offline():
+            calls["n"] += 1
+            raise RuntimeError("no network")
+
+        first = ground_feed.refresh_seed(path, now=pd.Timestamp("2026-11-18 03:30"),
+                                         air_fetch=offline, weather_fetch=offline)
+        second = ground_feed.refresh_seed(path, now=pd.Timestamp("2026-11-18 03:35"),
+                                          air_fetch=offline, weather_fetch=offline)
+        self.assertEqual(len(first), 49)
+        self.assertEqual(len(second), 49)
+        self.assertEqual(calls["n"], 1)
+
     def test_unwritable_seed_cache_still_forecasts(self):
         blocker = os.path.join(self.tmp, "blocker")
         with open(blocker, "w", encoding="utf-8") as f:

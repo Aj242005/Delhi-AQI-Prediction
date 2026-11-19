@@ -75,8 +75,10 @@ POLL_SECONDS = 5 * 60
 # modelled, not measured, so they live in their own file and are reported
 # separately - Live/ground_log.csv stays pure station readings.
 SEED_PATH = os.path.join(_BASE, "Live", "reanalysis_seed.csv")
-SEED_PAST_DAYS = 3
+SEED_PAST_DAYS = 7
 SEED_MAX_AGE_MIN = 60
+SEED_RETRY_MINUTES = 10   # after a failed fetch, wait before asking Open-Meteo again
+_SEED_FAILED_AT = None
 SEED_COLUMNS = ["Datetime", "seed_aqi", "seed_pm25", "seed_pm10",
                 "Temp_C", "Humidity", "Wind_Speed", "fetched_utc"]
 
@@ -252,6 +254,7 @@ def load_seed(path=None):
 def refresh_seed(path=None, force=False, now=None, max_age_minutes=SEED_MAX_AGE_MIN,
                  air_fetch=None, weather_fetch=None):
     """Reanalysis hours, refetched only when the cached copy has gone stale."""
+    global _SEED_FAILED_AT
     path = path or SEED_PATH
     cached = load_seed(path)
     now = now if now is not None else now_ist()
@@ -262,12 +265,19 @@ def refresh_seed(path=None, force=False, now=None, max_age_minutes=SEED_MAX_AGE_
                 return cached
         except Exception:
             pass
+    # A host that cannot reach Open-Meteo must not pay two timeouts per request:
+    # back off after a failure and keep serving the hours it already has.
+    if (not force and len(cached) and _SEED_FAILED_AT is not None
+            and (now - _SEED_FAILED_AT) < pd.Timedelta(minutes=SEED_RETRY_MINUTES)):
+        return cached
     try:
         air_df = (air_fetch or fetch_open_meteo_air_history)()
         wx_df = (weather_fetch or fetch_open_meteo_weather_history)()
     except Exception as exc:
         logger.warning("Reanalysis seed unavailable (%s) - using the cached hours", exc)
+        _SEED_FAILED_AT = now
         return cached
+    _SEED_FAILED_AT = None
     if air_df is None or air_df.empty:
         return cached
     merged = air_df.merge(wx_df, on="Datetime", how="left")
