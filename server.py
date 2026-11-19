@@ -11,10 +11,12 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 import uvicorn
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
+import chat_advisor  # OpenRouter chat behind the passenger plan (chat_advisor.py)
 import ground_feed  # live ground-sensor feed (ground_feed.py)
 import scorecard  # forecast scorecard (scorecard.py)
 
@@ -689,6 +691,33 @@ def health():
         "reanalysis_seed_hours": int(len(ground_feed.load_seed())),
         "forecast_log_rows": int(len(scorecard.load())),
     })
+
+
+@app.post("/api/chat")
+async def chat(request: Request):
+    """Passenger-plan chat: the board's own numbers plus a free OpenRouter model.
+
+    The forecast is never recomputed here - the browser sends the snapshot the
+    line is already showing, and chat_advisor.py turns it into an answer. The
+    API key lives only in the server environment.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"detail": "Send JSON: {\"message\": \"...\"}."})
+    try:
+        result = await run_in_threadpool(
+            chat_advisor.answer,
+            body.get("message", ""),
+            body.get("history"),
+            body.get("context"),
+            str(body.get("profile") or "Healthy Adult"),
+        )
+    except chat_advisor.ChatUnavailable as exc:
+        return JSONResponse(status_code=exc.status, content={"detail": str(exc)})
+    return JSONResponse(result)
 
 
 @app.post("/api/reload_models")
