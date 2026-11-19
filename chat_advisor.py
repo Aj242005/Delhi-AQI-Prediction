@@ -28,8 +28,13 @@ FALLBACK_MODELS = (
 )
 MAX_HISTORY = 8
 MAX_MESSAGE_CHARS = 800
-MAX_REPLY_TOKENS = 400
-TIMEOUT_SECONDS = 45
+# The free Nemotron models think before they answer, and the thinking is billed
+# as completion tokens: at full effort the budget runs out before any text is
+# emitted and the reply arrives as "empty". Low effort plus 1,500 tokens leaves
+# room for both the reasoning trace and the short answer.
+MAX_REPLY_TOKENS = 1500
+REASONING_EFFORT = "low"
+TIMEOUT_SECONDS = 70
 
 
 class ChatUnavailable(Exception):
@@ -170,6 +175,7 @@ def _post(model, messages, key, timeout=TIMEOUT_SECONDS):
         "messages": messages,
         "temperature": 0.3,
         "max_tokens": MAX_REPLY_TOKENS,
+        "reasoning": {"effort": REASONING_EFFORT},
     }).encode("utf-8")
     request = urllib.request.Request(OPENROUTER_URL, data=body, method="POST", headers={
         "Authorization": "Bearer " + key,
@@ -189,6 +195,13 @@ def _reply_text(payload):
     if isinstance(content, list):
         content = " ".join(str(part.get("text", "")) for part in content if isinstance(part, dict))
     return str(content or "").strip()
+
+
+def _finish_reason(payload):
+    try:
+        return str(payload["choices"][0].get("finish_reason") or "")
+    except (KeyError, IndexError, TypeError, AttributeError):
+        return ""
 
 
 def answer(message, history=None, context=None, profile="Healthy Adult"):
@@ -220,7 +233,8 @@ def answer(message, history=None, context=None, profile="Healthy Adult"):
         reply = _reply_text(payload)
         if reply:
             return {"reply": reply, "model": payload.get("model") or model}
-        problems.append(f"{model} -> empty reply")
+        problems.append(f"{model} -> empty reply ({_finish_reason(payload) or 'no finish reason'})")
+        logger.warning("OpenRouter returned no text from %s (finish=%s)", model, _finish_reason(payload))
     logger.warning("No OpenRouter model answered: %s", "; ".join(problems))
     raise ChatUnavailable(
         502, "The assistant could not answer just now. Check the OpenRouter key and try again.")
