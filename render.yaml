@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: anand-vihar-aqi-api
+    runtime: python
+    plan: starter
+    region: singapore
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: WAQI_TOKEN
+        sync: false
+      - key: RETRAIN_AUTO
+        value: "1"
+      - key: GROUND_LOG_PATH
+        value: /opt/render/project/src/Live/ground_log.csv
+    disk:
+      name: aqi-live-data
+      mountPath: /opt/render/project/src/Live
+      sizeGB: 1

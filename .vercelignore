@@ -1,0 +1,5 @@
+# The Vercel project is a static shell: only the UI document is uploaded.
+# The API and all stateful Python live on Render.
+*
+!index.html
+!vercel.json
