@@ -50,6 +50,15 @@
     --hindi: 'Noto Sans Devanagari', 'Plus Jakarta Sans', sans-serif;
     --wrap: 1240px;
     --pad: clamp(16px, 4vw, 40px);
+    --surface: rgba(11, 19, 33, .82);
+    --surface-2: rgba(13, 23, 40, .62);
+    --surface-flat: #0a1221;
+    --line-strong: rgba(255, 255, 255, .22);
+    --muted-strong: #b7c4d5;
+    --accent-ink: #1a0d04;
+    --data-measured: #fb923c;
+    --data-cams: #60a5fa;
+    --radius: 14px;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -80,7 +89,7 @@ body::before {
 
 main, header, footer, .utility, .sourcebar { position: relative; z-index: 1; }
 
-::selection { background: var(--yellow); color: var(--ink); }
+::selection { background: var(--yellow); color: var(--accent-ink); }
 
 a { color: var(--blue); text-underline-offset: 3px; }
 
@@ -104,7 +113,7 @@ h1, h2, h3, p, dl, dd, dt, figure { margin: 0; }
     top: -60px;
     z-index: 200;
     background: var(--yellow);
-    color: var(--ink);
+    color: var(--accent-ink);
     padding: 10px 14px;
     font-weight: 700;
     font-size: 13px;
@@ -304,7 +313,7 @@ h1, h2, h3, p, dl, dd, dt, figure { margin: 0; }
     text-overflow: ellipsis;
 }
 
-.sourcebar[data-source="replay"] .status-tag { background: var(--yellow); color: var(--ink); }
+.sourcebar[data-source="replay"] .status-tag { background: var(--yellow); color: var(--accent-ink); }
 .sourcebar[data-source="live"] .status-tag { background: var(--green); color: #fff; }
 .sourcebar[data-source="warn"] .status-tag { background: var(--amber); color: #fff; }
 .sourcebar[data-source="error"] .status-tag { background: var(--red); color: #fff; }
@@ -338,7 +347,7 @@ h1, h2, h3, p, dl, dd, dt, figure { margin: 0; }
 }
 .mode-btn + .mode-btn { border-left: 1px solid var(--ink); }
 .mode-btn[aria-pressed="true"] { background: var(--blue); color: var(--on-blue); }
-.mode-btn[data-mode="archive_2023"][aria-pressed="true"] { background: var(--yellow); color: var(--ink); }
+.mode-btn[data-mode="archive_2023"][aria-pressed="true"] { background: var(--yellow); color: var(--accent-ink); }
 
 .field { display: flex; align-items: center; gap: 8px; }
 .field label {
@@ -529,7 +538,7 @@ h1, h2, h3, p, dl, dd, dt, figure { margin: 0; }
 .terminus-band {
     display: inline-block;
     background: var(--yellow);
-    color: var(--ink);
+    color: var(--accent-ink);
     font-size: 10px;
     font-weight: 700;
     letter-spacing: .14em;
@@ -1239,7 +1248,7 @@ tr.is-focus td:first-child { font-weight: 700; }
     font-weight: 600;
 }
 .btn:hover { background: var(--ink); color: var(--paper); }
-.btn-primary { background: var(--yellow); color: var(--ink); }
+.btn-primary { background: var(--yellow); color: var(--accent-ink); }
 .btn-primary:hover { background: var(--blue); border-color: var(--blue); color: var(--on-blue); }
 
 /* ---------- footer ---------- */
@@ -1573,6 +1582,7 @@ body::before {
    (links and the small caps kicker) take the accent instead. */
 a, .kicker { color: #fb923c; }
 a:hover { color: #fdba74; }
+.skip:hover, .skip:focus { color: var(--accent-ink); }
 
 /* Keep the photo a hint at the edges: prose sits on the scrim, not on pixels. */
 .legend, .profiles {
@@ -1752,6 +1762,663 @@ select option { background: #0b1424; color: #f8fafc; }
 .failure-detail { background: rgba(0, 0, 0, .45); color: #fca5a5; }
 
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ============================================================
+   RESEARCH EDITION
+   Refinement layer: stronger provenance, a legible live ledger,
+   calmer surfaces, and mobile-first interaction fixes.
+   ============================================================ */
+
+.sr-only {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+body { line-height: 1.55; }
+
+.utility { font-size: 11px; }
+.utility .wrap { min-height: 36px; }
+.mast-kicker { font-size: 10.5px; }
+.mast-code { font-size: 10px; }
+.kicker { font-size: 11px; }
+.section-note { font-size: 13px; }
+.hero-context { font-size: 12px; }
+.hero-summary { font-size: clamp(1rem, 1.2vw, 1.08rem); line-height: 1.58; }
+.dep-label { font-size: 10px; }
+.dep-sub { font-size: 12px; }
+
+.sourcebar .wrap { padding-top: 10px; padding-bottom: 10px; }
+.status-tag { font-size: 10px; padding: 7px 9px; }
+.status-copy strong { font-size: 13px; }
+.status-copy small { font-size: 11.5px; }
+.seg { border-radius: 6px; }
+.mode-btn { min-height: 44px; padding: 9px 13px; font-size: 12px; }
+.field label { font-size: 10px; }
+.field select {
+    min-height: 44px;
+    padding: 8px 32px 8px 10px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    background-position: calc(100% - 15px) 19px, calc(100% - 11px) 19px;
+}
+.commute-row select { min-height: 44px; border-radius: 6px; }
+.commute-row select:disabled,
+.field select:disabled { opacity: .55; cursor: not-allowed; }
+
+/* --- provenance record in the hero --- */
+
+.hero-record {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    align-items: end;
+    gap: 12px 22px;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+.record-item { min-width: 0; }
+.record-label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.record-item strong {
+    display: block;
+    margin-top: 3px;
+    font-family: var(--body);
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--ink-2);
+}
+.record-link {
+    align-self: end;
+    justify-self: end;
+    padding-bottom: 1px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #fdba74;
+    text-decoration-color: rgba(253, 186, 116, .45);
+    text-underline-offset: 3px;
+    white-space: nowrap;
+}
+.record-link:hover { color: #ffedd5; }
+
+/* --- terminus: calibrated range, plainly labelled --- */
+
+.terminus-top { font-size: 10px; }
+.terminus-body { padding: 18px 20px 15px; }
+.terminus-caption { font-size: 12px; }
+.terminus-scale { margin-top: 18px; }
+.scale-track {
+    position: relative;
+    height: 10px;
+    overflow: hidden;
+    border-radius: 2px;
+    background:
+        repeating-linear-gradient(90deg, transparent 0 calc(20% - 1px), rgba(255,255,255,.22) calc(20% - 1px) 20%),
+        rgba(255, 255, 255, .10);
+}
+.scale-range {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--scale-from, 0%);
+    width: var(--scale-width, 0%);
+    background: rgba(249, 115, 22, .30);
+    border-left: 1px solid var(--yellow);
+    border-right: 1px solid var(--yellow);
+}
+.scale-point {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    left: var(--scale-point, 0%);
+    width: 2px;
+    transform: translateX(-1px);
+    background: #fff;
+}
+.scale-ends {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: .06em;
+    color: var(--blue-muted);
+}
+.terminus-meta dt { font-size: 9.5px; }
+.terminus-meta dd { font-size: 1.45rem; }
+.term-qual {
+    display: inline-block;
+    margin-left: 2px;
+    font-size: 8.5px;
+    color: rgba(159, 179, 200, .82);
+    letter-spacing: .04em;
+}
+.terminus-note {
+    padding: 10px 20px 14px;
+    border-top: 1px solid rgba(247, 244, 232, .18);
+    font-size: 10.5px;
+    line-height: 1.5;
+    color: var(--blue-muted);
+}
+
+/* --- route: selected state and touch affordance --- */
+
+.route-section { scroll-margin-top: 80px; }
+.route-shell {
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 12px;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+}
+.rail { top: 62px; }
+.stop {
+    scroll-snap-align: center;
+    border-radius: 6px;
+    transition: background-color .16s ease;
+}
+.stop:hover { background: rgba(255, 255, 255, .035); }
+.stop-time { font-size: 14px; }
+.stop-day { font-size: 10px; }
+.stop-horizon { font-size: 10.5px; }
+.stop-band { font-size: 10.5px; }
+.stop:focus-visible { outline-offset: -3px; }
+.route-note { max-width: 96ch; font-size: 13px; }
+.legend { padding: 9px 12px; }
+.legend-label { font-size: 10px; }
+.legend-item { font-size: 11.5px; }
+.stop[aria-pressed="true"] {
+    background: rgba(249, 115, 22, .08);
+    box-shadow: inset 0 0 0 1px rgba(249, 115, 22, .24);
+}
+.stop[aria-pressed="true"] .stop-time {
+    background: var(--yellow);
+    border-color: var(--yellow);
+    color: var(--accent-ink);
+}
+.stop[aria-pressed="true"] .stop-day { color: #5b3510; }
+.stop[aria-pressed="true"] .stop-node {
+    background: var(--accent-ink);
+    border-color: var(--yellow);
+    box-shadow: 0 0 0 3px var(--paper), 0 0 0 6px rgba(249, 115, 22, .55);
+}
+.stop[aria-pressed="true"] .stop-aqi {
+    color: var(--yellow);
+    border-bottom-color: var(--yellow);
+}
+.stop[aria-pressed="true"] .stop-band { color: var(--yellow); }
+
+/* --- selected stop readout, kept next to the line --- */
+
+.inspect {
+    display: grid;
+    grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr);
+    gap: 22px 38px;
+    margin-top: 20px;
+    padding: 20px 22px 22px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: inset 0 4px 0 var(--yellow);
+    background: linear-gradient(180deg, rgba(16, 26, 43, .78), rgba(8, 14, 26, .82));
+}
+.inspect-summary, .inspect-context { min-width: 0; }
+.inspect-context {
+    padding-left: 34px;
+    border-left: 1px solid var(--line);
+}
+.inspect-head { font-size: 10px; }
+#inspect-title { font-size: 1.85rem; }
+.inspect-aqi { margin: 11px 0 12px; }
+.inspect-aqi strong { font-size: 3.25rem; }
+#inspect-note { max-width: 44ch; font-size: 13px; line-height: 1.55; }
+.inspect-caveat {
+    max-width: 46ch;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--muted);
+}
+.conditions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 13px 16px;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+}
+.conditions-label { font-size: 9.5px; }
+.cond span { font-size: 9.5px; }
+.cond b { font-size: 1.2rem; }
+.inspect-driver { margin-top: 16px; padding-top: 13px; border-top: 1px solid var(--line); font-size: 12.5px; }
+.driver-tag {
+    display: inline-block;
+    margin-right: 4px;
+    padding: 2px 5px;
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 8.5px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    vertical-align: 1px;
+}
+
+/* --- passenger plan: one advice surface, one planning rail --- */
+
+.plan-grid {
+    grid-template-columns: minmax(0, 1.35fr) minmax(320px, .65fr);
+    gap: clamp(28px, 4vw, 48px);
+    align-items: start;
+}
+.plan-main { min-width: 0; }
+.plan-advice {
+    padding: 0 0 24px;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    background: none;
+}
+.plan-advice p { max-width: 44ch; font-size: clamp(1.25rem, 2vw, 1.6rem); }
+.plan-two { margin-top: 0; }
+.plan-two article {
+    padding: 20px 0 0;
+    border: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 0;
+    background: none;
+}
+.plan-two article + article { padding-left: clamp(18px, 2.8vw, 30px); border-left: 1px solid var(--line); }
+.plan-two p { font-size: 14.5px; }
+.plan-side {
+    padding: 20px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+.commute { margin-top: 0; padding-top: 0; border-top: 0; }
+.commute-row { gap: 8px 10px; }
+.commute-row label { font-size: 10.5px; }
+.commute-result { flex-basis: 100%; font-size: 14px; line-height: 1.55; }
+.commute-foot { margin-top: 10px; font-size: 11px; line-height: 1.5; color: var(--muted); }
+.plan-basis { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.plan-basis > p:not(.plan-foot) { font-size: 13px; line-height: 1.55; color: var(--ink-2); }
+.plan-foot { font-size: 11.5px; line-height: 1.55; }
+.profiles { border-radius: 10px; }
+.profile { min-height: 50px; }
+.plan .section-head { margin-bottom: 22px; }
+
+/* --- research record --- */
+
+.evidence details {
+    background: rgba(7, 13, 24, .76);
+    border-color: var(--line);
+    border-radius: var(--radius);
+}
+.evidence summary { padding: 16px 20px; }
+.evidence-tab {
+    padding: 6px 9px;
+    background: var(--yellow);
+    color: var(--accent-ink);
+    border-radius: 3px;
+    font-size: 10px;
+}
+.evidence-summary { font-size: clamp(1.2rem, 1.8vw, 1.38rem); }
+.evidence-status {
+    margin-left: auto;
+    padding: 5px 9px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: .06em;
+    white-space: nowrap;
+    color: var(--muted-strong);
+}
+.evidence-status[data-tone="scored"] { color: #a7f3d0; border-color: rgba(16, 185, 129, .45); }
+.evidence-status[data-tone="pending"] { color: #fde68a; border-color: rgba(245, 158, 11, .42); }
+.evidence-status[data-tone="error"] { color: #fecaca; border-color: rgba(239, 68, 68, .45); }
+.evidence-toggle { margin-left: 0; border-color: var(--line-strong); }
+.evidence-body { padding: 20px 20px 28px; }
+
+.research-banner {
+    display: grid;
+    gap: 5px;
+    margin-top: 4px;
+    padding: 14px 16px;
+    border: 1px solid rgba(249, 115, 22, .30);
+    border-radius: 10px;
+    background: rgba(249, 115, 22, .065);
+}
+.research-flag {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: #fdba74;
+}
+.research-banner p { max-width: 108ch; font-size: 12.5px; line-height: 1.58; color: var(--ink-2); }
+.research-banner b, .research-banner strong { color: var(--ink); font-weight: 600; }
+.research-window {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--muted);
+}
+.research-section {
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+}
+.research-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 46ch);
+    align-items: end;
+    gap: 5px 28px;
+    margin-bottom: 14px;
+}
+.research-head h3 {
+    font-family: var(--display);
+    font-size: 1.28rem;
+    font-weight: 700;
+    line-height: 1.15;
+}
+.research-head p {
+    justify-self: end;
+    max-width: 62ch;
+    text-align: right;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--muted);
+}
+.stat-row { border-radius: 10px; background: rgba(255, 255, 255, .03); }
+.stat { padding: 14px 16px; }
+.stat-label { font-size: 9.5px; }
+.stat-note { font-size: 11px; }
+
+.report-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1.02fr) minmax(0, .98fr);
+    gap: 28px 40px;
+    margin-top: 24px;
+}
+.report-half { min-width: 0; }
+.report-half h4 {
+    margin: 0 0 2px;
+    font-family: var(--display);
+    font-size: 1.02rem;
+    font-weight: 600;
+    line-height: 1.25;
+}
+.report-half .table-sub { margin-bottom: 8px; }
+.table-grid { gap: 28px 40px; margin-top: 0; }
+.table-block { padding: 0; border: 0; border-radius: 0; background: none; }
+.table-block.narrow { max-width: 780px; }
+.research-section .table-block + .table-block { margin-top: 28px; }
+.table-block h3 { font-size: 1.2rem; }
+.table-sub { max-width: 76ch; font-size: 11.5px; line-height: 1.5; }
+.table-scroll { overflow-x: auto; overscroll-behavior-x: contain; }
+.table-scroll:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.table-hint {
+    display: none;
+    margin-top: 4px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+table { font-size: 12.5px; }
+th { font-size: 9.5px; padding-top: 8px; padding-bottom: 8px; }
+td { padding-top: 8px; padding-bottom: 8px; }
+td:first-child { font-weight: 500; }
+tr.is-focus td { background: rgba(249, 115, 22, .13); }
+tr.is-focus td:first-child { color: #ffedd5; }
+
+.ledger-stats {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    margin: 12px 0;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, .025);
+}
+.ledger-stat { min-width: 0; padding: 10px 12px; border-right: 1px solid var(--line); }
+.ledger-stat:last-child { border-right: 0; }
+.ledger-stat span {
+    display: block;
+    font-family: var(--mono);
+    font-size: 8.5px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.ledger-stat b {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--display);
+    font-size: 1.3rem;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+.ledger-empty {
+    max-width: 82ch;
+    margin-top: 10px;
+    padding: 14px 16px;
+    border: 1px dashed var(--line-strong);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, .025);
+}
+.ledger-empty strong { display: block; font-size: 13px; color: var(--ink); }
+.ledger-empty p { margin-top: 3px; font-size: 12px; line-height: 1.55; color: var(--muted-strong); }
+.scorecard-gap {
+    max-width: 92ch;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+    font-size: 11.5px;
+    color: #fde68a;
+}
+
+.window-audit {
+    margin: 12px 0 16px;
+    padding: 13px 15px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, .025);
+}
+.window-audit-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px 18px;
+    margin-bottom: 8px;
+}
+.window-audit-head strong { font-size: 12.5px; }
+.window-audit-head span { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+.composition-bar {
+    display: flex;
+    height: 14px;
+    overflow: hidden;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, .08);
+}
+.composition-bar span { display: block; min-width: 2px; }
+.composition-bar .measured { background: var(--data-measured); }
+.composition-bar .cams { background: var(--data-cams); }
+.composition-bar .missing { background: rgba(255, 255, 255, .18); }
+.window-key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px 16px;
+    margin-top: 7px;
+    font-size: 11px;
+    color: var(--muted);
+}
+.window-key span { display: inline-flex; align-items: center; gap: 6px; }
+.window-key i { width: 9px; height: 9px; border-radius: 2px; }
+.window-key b { color: var(--ink-2); font-weight: 600; }
+.window-audit p { max-width: 100ch; margin-top: 7px; font-size: 11.5px; line-height: 1.55; color: var(--muted); }
+
+.spec-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 28px;
+    margin: 0;
+}
+.spec-grid > div { padding: 13px 0 15px; border-top: 1px solid var(--line); }
+.spec-grid dt {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.spec-grid dd {
+    margin: 4px 0 2px;
+    font-family: var(--display);
+    font-size: 1.06rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+.spec-note {
+    display: block;
+    margin-top: 4px;
+    font-family: var(--body);
+    font-size: 11.5px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--muted);
+}
+.method-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 30px;
+    margin: 0;
+}
+.method-grid > div { padding: 11px 0 13px; border-top: 1px solid var(--line); }
+.method-grid dt { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.method-grid dd { margin: 2px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--muted); }
+.provenance { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 12px; }
+.provenance b { color: var(--ink); }
+.provenance code { font-size: 10.5px; }
+.provenance .feature-list { margin-top: 8px; font-family: var(--mono); font-size: 10.5px; line-height: 1.7; color: var(--muted-strong); }
+.caveats { margin-top: 18px; font-size: 12px; }
+.caveat { border-radius: 9px; }
+
+/* --- footer and buttons --- */
+
+.btn { min-height: 44px; }
+.footer { font-size: 12px; }
+.footer-meta { font-size: 11.5px; line-height: 1.65; }
+.footer a { color: #fdba74; }
+
+@media (max-width: 1080px) {
+    .plan-grid { grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr); }
+    .spec-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+    .record-link { grid-column: 1 / -1; justify-self: start; }
+    .inspect { grid-template-columns: 1fr; }
+    .inspect-context { padding-left: 0; border-left: 0; padding-top: 16px; border-top: 1px solid var(--line); }
+    .plan-grid { grid-template-columns: 1fr; }
+    .plan-side { max-width: none; }
+    .report-split { grid-template-columns: 1fr; gap: 24px; }
+    .research-head { grid-template-columns: 1fr; align-items: start; }
+    .research-head p { justify-self: start; text-align: left; }
+    .evidence-body { padding-left: 16px; padding-right: 16px; }
+}
+
+@media (max-width: 860px) {
+    .terminus { max-width: none; }
+    .footer-grid { grid-template-columns: 1fr; gap: 14px; }
+    .footer-meta { grid-column: auto; text-align: left; }
+}
+
+@media (max-width: 680px) {
+    .utility { font-size: 10px; }
+    .mode-btn { padding-left: 11px; padding-right: 11px; }
+    .field select { font-size: 12px; }
+    .hero-record { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px 14px; }
+    .record-link { grid-column: 1 / -1; justify-self: start; }
+    .record-label { font-size: 9px; }
+    .record-item strong { font-size: 12px; }
+    .plan-two { grid-template-columns: 1fr; }
+    .plan-two article + article { padding-left: 0; border-left: 0; }
+    .plan-two article { padding-top: 16px; }
+    .plan-side { padding: 16px; }
+    .profiles {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+        overflow: visible;
+        border: 0;
+        background: none;
+        padding: 0;
+    }
+    .profile {
+        white-space: normal;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px 12px;
+    }
+    .profile:last-child { grid-column: 1 / -1; }
+    .profile[aria-pressed="true"] { border-color: rgba(249, 115, 22, .55); }
+    .evidence-summary { font-size: 1.05rem; }
+    .evidence-status { display: none; }
+    .evidence summary { gap: 10px; }
+    .evidence-body { padding-left: 12px; padding-right: 12px; padding-bottom: 22px; }
+    .research-banner { padding: 12px; }
+    .ledger-stats { grid-template-columns: 1fr 1fr; }
+    .ledger-stat { border-bottom: 1px solid var(--line); }
+    .ledger-stat:nth-child(2n) { border-right: 0; }
+    .ledger-stat:nth-last-child(-n+1) { border-bottom: 0; }
+    .stat-row { grid-template-columns: 1fr 1fr; }
+    .stat:nth-child(3) { border-left: 0; }
+    .stat:nth-child(3), .stat:nth-child(4) { border-top: 1px solid var(--line); }
+    .spec-grid, .method-grid { grid-template-columns: 1fr; }
+    .spec-grid > div, .method-grid > div { padding-top: 10px; padding-bottom: 11px; }
+    .window-audit-head { display: block; }
+    .window-audit-head span { display: block; margin-top: 2px; }
+    .table-scroll { margin-right: -2px; }
+    .table-hint { display: block; }
+    table { font-size: 11.5px; }
+    th { padding-right: 8px; }
+    td { padding-right: 8px; }
+    .footer-meta { line-height: 1.7; }
+}
+
+@media (max-width: 480px) {
+    .terminus-num { font-size: 4.5rem; }
+    .terminus-body { padding-left: 16px; padding-right: 16px; }
+    .terminus-meta > div { padding-left: 16px; padding-right: 16px; }
+    .terminus-note { padding-left: 16px; padding-right: 16px; }
+    .hero-record { grid-template-columns: 1fr 1fr; }
+    .record-link { margin-top: 2px; }
+    .inspect { padding: 16px; }
+    .inspect-aqi strong { font-size: 2.8rem; }
+    .conditions { grid-template-columns: 1fr 1fr; }
+    .ledger-stats { grid-template-columns: 1fr 1fr; }
+    .research-head h3 { font-size: 1.18rem; }
+}
 </style>
 </head>
 <body>
@@ -1832,6 +2499,21 @@ select option { background: #0b1424; color: #f8fafc; }
             <p class="hero-context" id="hero-context">Reading the latest hourly board</p>
             <h1 class="hero-title" id="hero-title">Reading the line…</h1>
             <p class="hero-summary" id="hero-summary">The forecast stops will appear here as soon as the server answers.</p>
+            <div class="hero-record" aria-label="Forecast provenance">
+                <div class="record-item">
+                    <span class="record-label">Reading</span>
+                    <strong id="record-issued">—</strong>
+                </div>
+                <div class="record-item">
+                    <span class="record-label">Model</span>
+                    <strong>XGBoost · 2017–2023</strong>
+                </div>
+                <div class="record-item">
+                    <span class="record-label">Input window</span>
+                    <strong id="record-window">—</strong>
+                </div>
+                <a class="record-link" href="#evidence" data-open-evidence>Evidence and methods <span aria-hidden="true">↓</span></a>
+            </div>
             <div class="departures" aria-label="Key stops in the forecast">
                 <div class="dep">
                     <span class="dep-label" id="dep-now-label">Now</span>
@@ -1860,17 +2542,25 @@ select option { background: #0b1424; color: #f8fafc; }
                 <div class="terminus-num" id="terminus-aqi">—</div>
                 <div class="terminus-band" id="terminus-band">Forecast</div>
                 <div class="terminus-caption" id="terminus-caption">The +24 hour forecast will sit here.</div>
+                <div class="terminus-scale" id="terminus-scale">
+                    <div class="scale-track" aria-hidden="true">
+                        <span class="scale-range" id="scale-range"></span>
+                        <span class="scale-point" id="scale-point"></span>
+                    </div>
+                    <div class="scale-ends" aria-hidden="true"><span>0</span><span>500 AQI</span></div>
+                </div>
             </div>
             <dl class="terminus-meta">
                 <div>
-                    <dt>80% interval</dt>
+                    <dt>80% interval <span class="term-qual">+24h</span></dt>
                     <dd id="terminus-interval">—</dd>
                 </div>
                 <div>
-                    <dt>Severe-day risk</dt>
+                    <dt>Severe-day risk <span class="term-qual">AQI &gt;400</span></dt>
                     <dd id="terminus-risk">—</dd>
                 </div>
             </dl>
+            <p class="terminus-note" id="terminus-calibration">Calibrated on the 2023 holdout. The risk is the chance of AQI above 400 within 24 hours.</p>
         </aside>
     </section>
 
@@ -1885,6 +2575,37 @@ select option { background: #0b1424; color: #f8fafc; }
             </div>
         </div>
         <p class="route-note" id="route-note" aria-live="polite">The line will be drawn when the first forecast arrives.</p>
+
+        <aside class="inspect" aria-labelledby="inspect-title">
+            <div class="inspect-summary">
+                <div class="inspect-head">
+                    <span>Stop inspection</span>
+                    <span id="inspect-pos">—</span>
+                </div>
+                <h3 id="inspect-title">
+                    <span id="inspect-time">—</span>
+                    <span class="inspect-horizon" id="inspect-horizon"></span>
+                </h3>
+                <div class="inspect-aqi">
+                    <strong id="inspect-aqi">—</strong>
+                    <span class="inspect-band" id="inspect-band">—</span>
+                </div>
+                <p id="inspect-note" aria-live="polite">Choose a stop on the line to see its forecast.</p>
+                <p class="inspect-caveat" id="inspect-caveat">Point forecast from the 49-hour input window. The calibrated 80% interval is published at +24h only.</p>
+            </div>
+            <div class="inspect-context">
+                <div class="conditions" aria-label="Weather and particles at the reading">
+                    <span class="conditions-label">At the reading · weather and particles</span>
+                    <div class="cond"><span>Temp</span><b id="cond-temp">—</b></div>
+                    <div class="cond"><span>Humidity</span><b id="cond-humidity">—</b></div>
+                    <div class="cond"><span>Wind</span><b id="cond-wind">—</b></div>
+                    <div class="cond"><span>PM2.5</span><b id="cond-pm25">—</b></div>
+                    <div class="cond"><span>PM10</span><b id="cond-pm10">—</b></div>
+                </div>
+                <p class="inspect-driver" id="inspect-driver" hidden></p>
+            </div>
+        </aside>
+
         <div class="legend" aria-label="CPCB AQI bands">
             <span class="legend-label">CPCB bands</span>
             <span class="legend-item" style="--band-color: var(--band-good)"><i class="legend-swatch" aria-hidden="true"></i><b>Good</b>&nbsp;0–50</span>
@@ -1927,8 +2648,11 @@ select option { background: #0b1424; color: #f8fafc; }
                         <p id="plan-vent">—</p>
                     </article>
                 </div>
+            </div>
+
+            <aside class="plan-side" aria-label="Trip planning and plan basis">
                 <div class="commute">
-                    <span class="plan-label">Planning a trip?</span>
+                    <span class="plan-label">Planning a trip? · IST</span>
                     <div class="commute-row">
                         <label for="commute-span">Trip length</label>
                         <select id="commute-span">
@@ -1939,31 +2663,13 @@ select option { background: #0b1424; color: #f8fafc; }
                         </select>
                         <p class="commute-result" id="commute-result">Choose a trip length to see the cleanest departure window.</p>
                     </div>
+                    <p class="commute-foot">Averages the point forecast, not the 80% interval. Times are India Standard Time.</p>
                 </div>
-                <p class="plan-foot" id="plan-foot">Prepared for the worst stop, not the best one. Single-station guidance, not medical advice.</p>
-            </div>
-
-            <aside class="inspect" aria-labelledby="inspect-title">
-                <div class="inspect-head">
-                    <span>Stop inspection</span>
-                    <span id="inspect-pos">—</span>
+                <div class="plan-basis">
+                    <span class="plan-label">How to read this plan</span>
+                    <p id="plan-basis-note">The plan is set for the worst forecast stop, so it covers the worst air expected in the next 24 hours. It is precautionary guidance from one station, not a personal medical assessment.</p>
+                    <p class="plan-foot" id="plan-foot">Prepared for the worst stop, not the best one. Single-station guidance, not medical advice.</p>
                 </div>
-                <h3 id="inspect-title">
-                    <span id="inspect-time">—</span>
-                    <span class="inspect-horizon" id="inspect-horizon"></span>
-                </h3>
-                <div class="inspect-aqi">
-                    <strong id="inspect-aqi">—</strong>
-                    <span class="inspect-band" id="inspect-band">—</span>
-                </div>
-                <p id="inspect-note">Choose a stop on the line to see its forecast.</p>
-                <div class="conditions" aria-label="Weather at the reading">
-                    <span class="conditions-label">At the reading</span>
-                    <div class="cond"><span>Temp</span><b id="cond-temp">—</b></div>
-                    <div class="cond"><span>Humidity</span><b id="cond-humidity">—</b></div>
-                    <div class="cond"><span>Wind</span><b id="cond-wind">—</b></div>
-                </div>
-                <p class="inspect-driver" id="inspect-driver" hidden></p>
             </aside>
         </div>
     </section>
@@ -1972,7 +2678,8 @@ select option { background: #0b1424; color: #f8fafc; }
         <details id="evidence">
             <summary>
                 <span class="evidence-tab">Control room</span>
-                <span class="evidence-summary">Model evidence, calibration and provenance</span>
+                <span class="evidence-summary">Evidence, methods and provenance</span>
+                <span class="evidence-status" id="evidence-status">Ledger loading</span>
                 <span class="evidence-toggle" aria-hidden="true"></span>
             </summary>
             <div class="evidence-body" id="evidence-body">
@@ -1985,8 +2692,8 @@ select option { background: #0b1424; color: #f8fafc; }
 <footer class="footer">
     <div class="wrap footer-grid">
         <div class="footer-brand"><span class="footer-mark" aria-hidden="true">AV</span> Anand Vihar Air Bulletin</div>
-        <p><b>One station, one honest line.</b> Forecasts are built from hourly CPCB readings at DPCC Anand Vihar. Replay windows are recorded 2023 data and are always labelled; they are never today's air. Guidance is not medical advice.</p>
-        <p class="footer-meta">Data: CPCB/DPCC via OpenCity<br>Weather: Open-Meteo<br>Model: XGBoost · 2022 calibration</p>
+        <p><b>One station, one honest line.</b> Forecasts are built from hourly CPCB readings at DPCC Anand Vihar. Replay windows are recorded 2023 data and are always labelled; they are never today's air. Missing live hours are completed from CAMS reanalysis and kept separate from measured readings. Guidance is not medical advice.</p>
+        <p class="footer-meta">Live data: DPCC via WAQI<br>Historical: CPCB via OpenCity<br>Weather and CAMS: Open-Meteo<br>Model: XGBoost · 2022 calibration · 2023 holdout<br>Times: IST (UTC+05:30)</p>
     </div>
 </footer>
 
@@ -2013,10 +2720,13 @@ const state = {
     animateNext: true,
     meta: null,
     scorecard: null,
+    scorecardStatus: 'loading',
     health: null
 };
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
 
 const $ = (id) => document.getElementById(id);
 
@@ -2105,18 +2815,79 @@ function splitHour(text) {
     return m ? { time: m[1].trim(), horizon: m[2] } : { time: String(text || '').trim(), horizon: '' };
 }
 
+function parseIstMs(iso) {
+    if (!iso) return NaN;
+    const value = String(iso);
+    const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(value);
+    return new Date(hasZone ? value : value + '+05:30').getTime();
+}
+
+function istWallIso(ms) {
+    if (!Number.isFinite(ms)) return '';
+    return new Date(ms + IST_OFFSET_MS).toISOString().slice(0, 16);
+}
+
+function istClockFromMs(ms) {
+    const wall = istWallIso(ms);
+    return wall ? hourLabel(wall) : '';
+}
+
+function setRecord(d) {
+    const reading = $('record-issued');
+    const window = $('record-window');
+    if (!reading || !window) return;
+    if (!d || !d.reading_time) {
+        reading.textContent = 'Waiting for a reading';
+        window.textContent = '—';
+        window.removeAttribute('title');
+        return;
+    }
+    const compact = compactReading(d.reading_time);
+    reading.textContent = d.is_replay ? String(d.reading_time) : `${compact} IST`;
+    const win = d.window || null;
+    if (d.is_replay) {
+        window.textContent = win ? `${fmtInt(win.hours)} h recorded` : 'Recorded window';
+        window.title = 'This replay uses a recorded 2023 window. It is not today’s air.';
+    } else if (win) {
+        window.textContent = `${fmtInt(win.measured)} measured · ${fmtInt(win.cams)} CAMS`;
+        window.title = `${fmtInt(win.measured)} of ${fmtInt(win.hours)} hours are measured sensor readings. ${fmtInt(win.cams)} hours are CAMS reanalysis, used only where the local feed missed.`;
+    } else {
+        window.textContent = 'Live window';
+        window.removeAttribute('title');
+    }
+}
+
 function setSource(kind, tag, title, detail) {
     const bar = $('sourcebar');
     bar.dataset.source = kind;
-    $('status-tag').textContent = tag;
-    $('status-title').textContent = title;
-    $('status-detail').textContent = detail;
+    if ($('status-tag').textContent !== tag) $('status-tag').textContent = tag;
+    if ($('status-title').textContent !== title) $('status-title').textContent = title;
+    if ($('status-detail').textContent !== detail) $('status-detail').textContent = detail;
+    bar.title = detail || '';
     const label = state.mode === 'live_ground' ? 'Live' : 'Replay';
-    if (kind === 'loading') $('util-mode').textContent = 'Connecting';
-    else if (kind === 'error') $('util-mode').textContent = label + ' service · down';
-    else if (kind === 'warn') $('util-mode').textContent = 'Live service · not ready';
-    else if (kind === 'replay') $('util-mode').textContent = 'Replay service';
-    else $('util-mode').textContent = 'Live service';
+    let mode = 'Live service';
+    if (kind === 'loading') mode = 'Connecting';
+    else if (kind === 'error') mode = label + ' service · down';
+    else if (kind === 'warn') mode = 'Live service · not ready';
+    else if (kind === 'replay') mode = 'Replay service';
+    if ($('util-mode').textContent !== mode) $('util-mode').textContent = mode;
+}
+
+function updateEvidenceStatus() {
+    const el = $('evidence-status');
+    if (!el) return;
+    if (state.scorecardStatus === 'error') {
+        el.textContent = 'Ledger unavailable';
+        el.dataset.tone = 'error';
+        return;
+    }
+    if (state.scorecard) {
+        el.textContent = `${fmtInt(state.scorecard.scored)} graded · ${fmtInt(state.scorecard.pending)} pending`;
+        el.dataset.tone = state.scorecard.scored > 0 ? 'scored' : 'pending';
+        return;
+    }
+    el.textContent = 'Ledger loading';
+    el.dataset.tone = 'pending';
 }
 
 function showForecast(show) {
@@ -2137,6 +2908,13 @@ function syncProfiles() {
     document.querySelectorAll('.profile').forEach((btn) => {
         btn.setAttribute('aria-pressed', String(btn.dataset.profile === state.profile));
     });
+}
+
+function stopWhenLabel(stop, isReplay) {
+    if (!stop) return '';
+    if (!stop.day) return stop.time || '';
+    if (stop.day === '+1d' && !isReplay) return `${stop.time} tomorrow`;
+    return `${stop.time} (${stop.day})`;
 }
 
 function buildStops(d) {
@@ -2173,7 +2951,7 @@ function renderRoute() {
         const selected = index === state.selected;
         const time = stop.time || '—';
         const day = stop.day ? `<span class="stop-day">${esc(stop.day)}</span>` : '';
-        const label = `Stop ${index + 1} of ${stops.length}: ${stop.label}, ${time}, AQI ${fmtInt(stop.aqi)}, ${band.name}`;
+        const label = `${time}${stop.day ? ' ' + stop.day : ''} ${stop.label} ${fmtInt(stop.aqi)} ${band.name}, stop ${index + 1} of ${stops.length}`;
         return `<button class="stop" type="button" data-index="${index}" aria-pressed="${selected}" aria-label="${esc(label)}" style="--band: ${band.color}">
             <span class="stop-time">${esc(time)}${day}</span>
             <span class="stop-horizon">${esc(stop.label)}</span>
@@ -2189,6 +2967,17 @@ function renderRoute() {
         route.classList.add('is-drawing');
         state.animateNext = false;
     }
+    centerSelectedStop();
+}
+
+function centerSelectedStop() {
+    const active = document.querySelector('#route button.stop[aria-pressed="true"]');
+    if (!active) return;
+    const shell = active.closest('.route-shell');
+    if (!shell || shell.scrollWidth <= shell.clientWidth + 4) return;
+    const target = active.offsetLeft - (shell.clientWidth - active.offsetWidth) / 2;
+    const max = shell.scrollWidth - shell.clientWidth;
+    shell.scrollLeft = Math.max(0, Math.min(max, target));
 }
 
 function renderInspection(d) {
@@ -2230,15 +3019,22 @@ function setWeather(d) {
     $('cond-temp').textContent = numText(d.temp, '°C', 1);
     $('cond-humidity').textContent = numText(d.humidity, '%', 0);
     $('cond-wind').textContent = numText(d.wind, ' km/h', 1);
+    $('cond-pm25').textContent = numText(d.pm25, ' µg/m³', 0);
+    $('cond-pm10').textContent = numText(d.pm10, ' µg/m³', 0);
 }
 
 function renderPlan(d) {
     const worst = splitHour(d.worst_hour);
     const advice = d.advisory || {};
-    $('plan-scope').textContent = `Set for the worst stop: ${worst.time}${worst.horizon ? ' ' + worst.horizon : ''} · ${fmtInt(d.peak_24h)} AQI (${bandOf(d.peak_24h).name}).`;
+    const worstStop = state.stops.find((stop) => stop.label === worst.horizon.toUpperCase());
+    const worstWhen = stopWhenLabel(worstStop, Boolean(d.is_replay || d.source_mode === 'archive_2023')) || worst.time;
+    $('plan-scope').textContent = `Set for the worst stop: ${worstWhen}${worst.horizon ? ' (' + worst.horizon + ')' : ''} · ${fmtInt(d.peak_24h)} AQI (${bandOf(d.peak_24h).name}).`;
     $('plan-advice').textContent = advice.advice || 'Guidance is unavailable for this reading.';
     $('plan-mask').textContent = advice.mask || '—';
     $('plan-vent').textContent = advice.ventilation || '—';
+    $('plan-basis-note').textContent = d.is_replay
+        ? 'The plan is set for the worst stop in the recorded 2023 window, not today’s air. It is precautionary guidance from one station, not a personal medical assessment.'
+        : 'The plan is set for the worst forecast stop, so it covers the worst air expected in the next 24 hours. It is precautionary guidance from one station, not a personal medical assessment.';
     $('plan-foot').textContent = `Plan for ${state.profile}. Prepared for the worst stop, not the best one. Single-station guidance, not medical advice.`;
 }
 
@@ -2246,16 +3042,20 @@ function renderForecast(d) {
     state.stops = buildStops(d);
     state.data = d;
 
+    setRecord(d);
     if (d.is_replay || d.source_mode === 'archive_2023') {
         setSource('replay', 'Replay · not live', 'Recorded air, not today’s', `${d.reading_time || 'Recorded window'} · 2023 test set`);
         $('hero-context').textContent = `Recorded line · ${d.reading_time || '2023 test set'} · not today’s air`;
         document.title = `Replay ${fmtInt(d.current_aqi)} → ${fmtInt(d.pred_24h)} AQI · Anand Vihar`;
     } else {
-        const win = d.window && d.window.cams
-            ? ` · window: ${d.window.measured} measured + ${d.window.cams} CAMS`
-            : '';
+        let win = '';
+        if (d.window) {
+            win = d.window.cams
+                ? ` · window ${d.window.measured} measured + ${d.window.cams} CAMS-modelled`
+                : ` · window ${d.window.measured} measured`;
+        }
         setSource('live', 'Live sensor', 'DPCC Anand Vihar, latest hour', `${d.reading_time || 'Latest reading'} · WAQI feed${win}`);
-        $('hero-context').textContent = `Live line · latest hourly reading ${d.reading_time || ''}`.trim();
+        $('hero-context').textContent = `Live line · forecast from the ${d.reading_time || 'latest'} reading`;
         document.title = `${fmtInt(d.current_aqi)} → ${fmtInt(d.pred_24h)} AQI · Anand Vihar`;
     }
 
@@ -2263,16 +3063,21 @@ function renderForecast(d) {
     const worst = splitHour(d.worst_hour);
     const band24 = bandOf(d.pred_24h);
     const peakBand = bandOf(d.peak_24h);
-    const sameBand = band24.name === peakBand.name;
-    const lead = sameBand
+    const stops = state.stops;
+    const replay = Boolean(d.is_replay || d.source_mode === 'archive_2023');
+    const bestStop = stops.find((stop) => stop.label === best.horizon.toUpperCase());
+    const worstStop = stops.find((stop) => stop.label === worst.horizon.toUpperCase());
+    const bestWhen = stopWhenLabel(bestStop, replay) || best.time;
+    const worstWhen = stopWhenLabel(worstStop, replay) || worst.time;
+    const bandsOnLine = new Set(stops.map((stop) => bandOf(stop.aqi).name));
+    const lead = bandsOnLine.size === 1
         ? `The line stays in the ${bandWord(peakBand.name)} band.`
         : `The line peaks in the ${bandWord(peakBand.name)} band.`;
-    $('hero-title').textContent = `${lead} ${best.time} is the least bad stop.`;
+    $('hero-title').textContent = `${lead} The cleanest stop is ${bestWhen}.`;
 
-    const stops = state.stops;
     const severeStops = stops.filter((stop) => bandOf(stop.aqi).name === 'Severe').length;
-    const peakPart = `${fmtInt(d.peak_24h)} at ${worst.time}${worst.horizon ? ' ' + worst.horizon : ''}`;
-    const lowPart = `${fmtInt(d.min_24h)} at ${best.time}${best.horizon ? ' ' + best.horizon : ''}`;
+    const peakPart = `${fmtInt(d.peak_24h)} at ${worstWhen}${worst.horizon ? ' (' + worst.horizon + ')' : ''}`;
+    const lowPart = `${fmtInt(d.min_24h)} at ${bestWhen}${best.horizon ? ' (' + best.horizon + ')' : ''}`;
     const summaryLead = severeStops > 0
         ? `${severeStops} of ${stops.length} stops are in the severe band.`
         : `No stop reaches the severe band.`;
@@ -2282,9 +3087,9 @@ function renderForecast(d) {
     $('dep-now').textContent = fmtInt(d.current_aqi);
     $('dep-now-sub').textContent = `${bandOf(d.current_aqi).name} · ${compactReading(d.reading_time)}`;
     $('dep-best').textContent = fmtInt(d.min_24h);
-    $('dep-best-sub').textContent = `${best.time} ${best.horizon} · ${bandOf(d.min_24h).name}`.trim();
+    $('dep-best-sub').textContent = `${bestWhen} ${best.horizon} · ${bandOf(d.min_24h).name}`.trim();
     $('dep-peak').textContent = fmtInt(d.peak_24h);
-    $('dep-peak-sub').textContent = `${worst.time} ${worst.horizon} · ${peakBand.name}`.trim();
+    $('dep-peak-sub').textContent = `${worstWhen} ${worst.horizon} · ${peakBand.name}`.trim();
 
     const lastWave = (d.wave && d.wave[d.wave.length - 1]) || {};
     const lastWhen = lastWave.iso
@@ -2299,11 +3104,25 @@ function renderForecast(d) {
     $('terminus-risk').textContent = d.severe_prob_pct === null || d.severe_prob_pct === undefined ? '—' : `${Math.round(Number(d.severe_prob_pct))}%`;
     $('terminus-risk').title = d.severe_prob_str || '';
 
+    const scaleLow = Math.max(0, Math.min(500, Number(d.pi80_low)));
+    const scaleHigh = Math.max(0, Math.min(500, Number(d.pi80_high)));
+    const scalePoint = Math.max(0, Math.min(500, Number(d.pred_24h)));
+    const pct = (value) => `${(value / 500) * 100}%`;
+    $('scale-range').style.setProperty('--scale-from', pct(scaleLow));
+    $('scale-range').style.setProperty('--scale-width', pct(Math.max(0, scaleHigh - scaleLow)));
+    $('scale-point').style.setProperty('--scale-point', pct(scalePoint));
+    const intervalCoverage = Number(d.coverage_test_pct);
+    $('terminus-calibration').textContent = Number.isFinite(intervalCoverage)
+        ? `The 80% interval covered ${fmtDecimal(intervalCoverage, 1)}% of 2023 test hours. Severe-day risk is P(AQI > 400 within 24 hours).`
+        : 'Severe-day risk is P(AQI > 400 within 24 hours). Interval coverage is reported in the evidence record.';
+
     const delta = Number(d.pred_24h) - Number(d.current_aqi);
     const direction = Math.abs(delta) < 3 ? 'holds' : delta < 0 ? 'eases' : 'rises';
-    const fromWord = d.is_replay ? 'at the recorded reading' : 'now';
-    $('route-note').innerHTML = `The line ${direction} from <b>${fmtInt(d.current_aqi)}</b> ${fromWord} to <b>${fmtInt(d.pred_24h)}</b> at +24h. The cleanest window is <b>${esc(best.time)} ${esc(best.horizon)}</b> at ${fmtInt(d.min_24h)} AQI; the peak is ${esc(worst.time)} ${esc(worst.horizon)} at ${fmtInt(d.peak_24h)}.`;
+    const fromWord = d.is_replay ? 'at the recorded reading' : 'at the reading';
+    $('route-note').innerHTML = `The line ${direction} from <b>${fmtInt(d.current_aqi)}</b> ${fromWord} to <b>${fmtInt(d.pred_24h)}</b> at +24h. The cleanest window is <b>${esc(bestWhen)} ${esc(best.horizon)}</b> at ${fmtInt(d.min_24h)} AQI; the peak is ${esc(worstWhen)} ${esc(worst.horizon)} at ${fmtInt(d.peak_24h)}.`;
 
+    $('terminus-scale').hidden = false;
+    $('inspect-caveat').textContent = 'Point forecast from the 49-hour input window. The calibrated 80% interval is published at +24h only.';
     renderRoute();
     renderInspection(d);
     renderPlan(d);
@@ -2332,6 +3151,7 @@ function renderWaiting(d) {
     const level = d.source_warning_level || 'collecting';
     const tag = level === 'no_token' ? 'Live · no token' : 'Live · not ready';
     setSource('warn', tag, d.headline || 'Forecast warming up', d.collect_note || `${have} of ${need} hourly readings saved`);
+    setRecord(d);
 
     $('hero-context').textContent = level === 'no_token'
         ? 'Live service · no WAQI token configured'
@@ -2351,6 +3171,8 @@ function renderWaiting(d) {
     $('dep-peak').textContent = '—';
     $('dep-peak-sub').textContent = 'Unlocks with the forecast';
 
+    $('record-window').textContent = `${have} of ${need} hours saved`;
+    $('record-window').title = 'The forecast unlocks when the 49-hour input window is complete.';
     $('terminus-aqi').textContent = '—';
     $('terminus-band').textContent = 'Forecast locked';
     $('terminus-code').textContent = 'LOCKED';
@@ -2359,6 +3181,8 @@ function renderWaiting(d) {
     $('terminus-interval').title = '';
     $('terminus-risk').textContent = '—';
     $('terminus-risk').title = '';
+    $('terminus-scale').hidden = true;
+    $('terminus-calibration').textContent = 'The calibrated interval and severe-day risk unlock with the forecast.';
 
     const baseBand = hasReading ? bandOf(d.current_aqi) : null;
     const base = baseBand
@@ -2386,6 +3210,7 @@ function renderWaiting(d) {
     $('plan-advice').textContent = advice.advice || 'Advice appears as soon as a fresh live reading is available.';
     $('plan-mask').textContent = advice.mask || '—';
     $('plan-vent').textContent = advice.ventilation || '—';
+    $('plan-basis-note').textContent = 'The plan reflects the latest saved reading only; the 24-hour plan unlocks with the forecast. It is precautionary guidance from one station, not a personal medical assessment.';
     $('plan-foot').textContent = `Plan for ${state.profile}. Live guidance unlocks with the forecast. Not medical advice.`;
 
     $('inspect-pos').textContent = 'No forecast';
@@ -2397,6 +3222,7 @@ function renderWaiting(d) {
     $('inspect-note').textContent = hasReading
         ? 'This reading is saved, but the forecast stops are locked until the 49-hour window is complete.'
         : 'No forecast stops yet. The line unlocks when the live window is complete.';
+    $('inspect-caveat').textContent = 'The calibrated interval and point forecasts appear when the 49-hour input window is complete.';
     setWeather(d);
     renderCommute(d);
     renderDriver(d);
@@ -2423,7 +3249,7 @@ function renderCommute(d) {
     const points = [{ iso: d.current_time_iso, aqi: Number(d.current_aqi) }]
         .concat(d.wave.map((point) => ({ iso: point.iso, aqi: Number(point.aqi) })))
         .filter((point) => point.iso && Number.isFinite(point.aqi))
-        .map((point) => ({ t: new Date(point.iso).getTime(), aqi: point.aqi }))
+        .map((point) => ({ t: parseIstMs(point.iso), aqi: point.aqi }))
         .filter((point) => Number.isFinite(point.t))
         .sort((a, b) => a.t - b.t);
     if (points.length < 2) {
@@ -2463,12 +3289,23 @@ function renderCommute(d) {
     }
     const band = bandOf(best.average);
     const leavingNow = best.start <= first + stepMs / 2;
-    const startDate = new Date(best.start);
-    const when = String(startDate.getHours()).padStart(2, '0') + ':' + String(startDate.getMinutes()).padStart(2, '0');
+    const whenIso = istWallIso(best.start);
+    const when = hourLabel(whenIso);
+    const dayShift = dayShiftOf(whenIso, d.current_time_iso);
+    const whenText = `${when}${dayShift ? ' ' + dayShift : ''}`;
+    const isReplay = Boolean(d.is_replay || d.source_mode === 'archive_2023');
+    const stale = !isReplay && Date.now() - first > 90 * 60 * 1000;
     const spanWord = span === 60 ? '1-hour' : `${span}-minute`;
-    result.innerHTML = leavingNow
-        ? `Leaving now is already the cleanest window — a ${spanWord} trip averages <b>${fmtInt(best.average)}</b> AQI (${esc(band.name)}).`
-        : `Leave around <b>${esc(when)}</b> — a ${spanWord} trip averages <b>${fmtInt(best.average)}</b> AQI (${esc(band.name)}), against ${fmtInt(aqiAt(first))} if you left now.`;
+    const atReading = fmtInt(aqiAt(first));
+    if (leavingNow && isReplay) {
+        result.innerHTML = `In this recorded window, the cleanest trip starts at <b>${esc(whenText)} IST</b> — a ${spanWord} trip averages <b>${fmtInt(best.average)}</b> AQI (${esc(band.name)}).`;
+    } else if (leavingNow && stale) {
+        result.innerHTML = `The cleanest trip starts at the latest reading, <b>${esc(whenText)} IST</b> — a ${spanWord} trip averages <b>${fmtInt(best.average)}</b> AQI (${esc(band.name)}). Check the line again before you leave.`;
+    } else if (leavingNow) {
+        result.innerHTML = `Leaving now is already the cleanest window — a ${spanWord} trip averages <b>${fmtInt(best.average)}</b> AQI (${esc(band.name)}).`;
+    } else {
+        result.innerHTML = `Leave around <b>${esc(whenText)} IST</b> — a ${spanWord} trip averages <b>${fmtInt(best.average)}</b> AQI (${esc(band.name)}), against ${atReading} at the ${stale ? 'latest reading' : 'reading'}.`;
+    }
 }
 
 function renderDriver(d) {
@@ -2481,12 +3318,89 @@ function renderDriver(d) {
         return;
     }
     element.hidden = false;
-    element.innerHTML = `Likely driver: <b>${esc(driver.label)}</b> — ${esc(driver.detail)}`;
+    element.innerHTML = `<span class="driver-tag">Heuristic</span>Likely driver: <b>${esc(driver.label)}</b> — ${esc(driver.detail)} This is a seasonal pattern, not source apportionment.`;
 }
 
-function renderScorecardMarkup() {
+function renderWindowAudit() {
+    const d = state.data;
+    const win = d && d.window;
+    if (!win) {
+        const have = d && d.collect_have !== undefined ? `${d.collect_have} of ${d.collect_need || 49} hours saved` : 'no window published';
+        return `<p class="table-sub">The server reports ${esc(have)}; the measured/CAMS split is published once a forecast is available.</p>`;
+    }
+    const measured = Math.max(0, Number(win.measured) || 0);
+    const cams = Math.max(0, Number(win.cams) || 0);
+    const hours = Math.max(1, Number(win.hours) || measured + cams);
+    const missing = Math.max(0, hours - measured - cams);
+    const measuredPct = Math.max(0, Math.min(100, (measured / hours) * 100));
+    const camsPct = Math.max(0, Math.min(100, (cams / hours) * 100));
+    const missingPct = Math.max(0, 100 - measuredPct - camsPct);
+    const isReplay = Boolean(d.is_replay || d.source_mode === 'archive_2023');
+    const measuredName = isReplay ? 'recorded sensor hours' : 'measured sensor hours';
+    return `<div class="window-audit">
+        <div class="window-audit-head">
+            <strong>${isReplay ? 'Recorded input window' : 'Live input window'}</strong>
+            <span>${fmtInt(measured)} of ${fmtInt(hours)} hours measured</span>
+        </div>
+        <div class="composition-bar" role="img" aria-label="${fmtInt(measured)} of ${fmtInt(hours)} input hours are ${measuredName}; ${fmtInt(cams)} are CAMS reanalysis; ${fmtInt(missing)} are still missing">
+            <span class="measured" style="width:${measuredPct.toFixed(2)}%"></span>
+            ${cams ? `<span class="cams" style="width:${camsPct.toFixed(2)}%"></span>` : ''}
+            ${missing ? `<span class="missing" style="width:${missingPct.toFixed(2)}%"></span>` : ''}
+        </div>
+        <div class="window-key">
+            <span><i style="background:var(--data-measured)"></i><b>${fmtInt(measured)} ${measuredName}</b></span>
+            ${cams ? `<span><i style="background:var(--data-cams)"></i><b>${fmtInt(cams)} CAMS reanalysis</b></span>` : ''}
+            ${missing ? `<span><i style="background:rgba(255,255,255,.22)"></i><b>${fmtInt(missing)} still missing</b></span>` : ''}
+        </div>
+        <p>${isReplay
+            ? 'This is a recorded 2023 window from the replay set. It is not today’s air, and it is not live evidence.'
+            : cams
+                ? `CAMS reanalysis completes the ${fmtInt(hours)}-hour input window where the local WAQI feed missed an hour. It is modelled input, not a measurement, and it never enters the live ledger.${missing ? ` ${fmtInt(missing)} hour${missing === 1 ? ' is' : 's are'} still missing, so no forecast can be issued from this window.` : ''}`
+                : missing
+                    ? `${fmtInt(missing)} hour${missing === 1 ? ' is' : 's are'} still missing, so no forecast can be issued from this window. CAMS reanalysis is used only to fill hours the local feed missed.`
+                    : 'Every hour in this input window is a measured sensor reading.'}</p>
+    </div>`;
+}
+
+function renderLedgerMarkup() {
     const sc = state.scorecard;
-    if (!sc) return '';
+    const head = `<div class="research-head">
+        <h3 id="ledger-head">Live evaluation ledger</h3>
+        <p>Issued forecasts graded against the measured DPCC hours that followed. CAMS-filled hours never grade a forecast. <span class="table-hint">Swipe wide tables sideways.</span></p>
+    </div>`;
+
+    if (state.scorecardStatus === 'error') {
+        return `<section class="research-section" aria-labelledby="ledger-head">
+            ${head}
+            <div class="ledger-empty">
+                <strong>The live ledger could not be loaded.</strong>
+                <p>The model card and 2023 validation record below are unaffected. Reopen this section to retry the ledger.</p>
+            </div>
+        </section>`;
+    }
+
+    if (!sc) {
+        return `<section class="research-section" aria-labelledby="ledger-head">
+            ${head}
+            <div class="ledger-empty">
+                <strong>Reading the live ledger…</strong>
+                <p>Issued forecasts appear here after their target hour passes and a measured reading is saved.</p>
+            </div>
+        </section>`;
+    }
+
+    const coverage = sc.coverage_pct === null || sc.coverage_pct === undefined ? '—' : fmtDecimal(sc.coverage_pct, 1) + '%';
+    const brier = sc.brier === null || sc.brier === undefined ? '—' : fmtDecimal(sc.brier, 3);
+
+    const stat = (label, value) => `<div class="ledger-stat"><span>${label}</span><b>${value}</b></div>`;
+    const stats = `<div class="ledger-stats">
+        ${stat('Issued', fmtInt(sc.logged))}
+        ${stat('Graded', fmtInt(sc.scored))}
+        ${stat('Awaiting hour', fmtInt(sc.pending))}
+        ${stat('No reading', fmtInt(sc.missing))}
+        ${stat('80% coverage', coverage)}
+    </div>`;
+
     const rows = (sc.horizons || []).map((h) => `<tr>
         <td>${esc(h.horizon)}</td>
         <td class="num">${fmtInt(h.rows)}</td>
@@ -2497,16 +3411,24 @@ function renderScorecardMarkup() {
     </tr>`).join('');
 
     const table = rows
-        ? `<div class="table-scroll">
+        ? `<div class="table-scroll" tabindex="0" role="region" aria-label="Live ledger by horizon">
                 <table>
-                    <thead><tr><th>Horizon</th><th class="num">Rows</th><th class="num">MAE</th><th class="num">RMSE</th><th class="num">Bias</th><th class="num">Skill</th></tr></thead>
+                    <thead><tr><th>Horizon</th><th class="num">Graded</th><th class="num">MAE</th><th class="num">RMSE</th><th class="num">Bias</th><th class="num">Skill</th></tr></thead>
                     <tbody>${rows}</tbody>
                 </table>
             </div>`
-        : `<p class="table-sub">${esc(sc.note || 'No graded forecasts yet.')}</p>`;
+        : '';
 
-    const coverage = sc.coverage_pct === null || sc.coverage_pct === undefined ? '—' : fmtDecimal(sc.coverage_pct, 1) + '%';
-    const brier = sc.brier === null || sc.brier === undefined ? '—' : fmtDecimal(sc.brier, 3);
+    const missingNote = sc.missing
+        ? `<p class="scorecard-gap">${fmtInt(sc.missing)} forecast hour${sc.missing === 1 ? '' : 's'} passed without a saved reading — the feed or the server was down — so ${sc.missing === 1 ? 'it is' : 'they are'} excluded from these errors rather than scored against a guess.</p>`
+        : '';
+
+    const empty = sc.scored
+        ? ''
+        : `<div class="ledger-empty">
+                <strong>No forecast has been graded in this window yet.</strong>
+                <p>${fmtInt(sc.logged)} forecast row${sc.logged === 1 ? '' : 's'} issued · ${fmtInt(sc.pending)} still waiting for their target hour · ${fmtInt(sc.missing)} passed without a measured reading. Errors appear only after a measured hour is available to grade against.</p>
+            </div>`;
 
     const reliability = (sc.reliability || []).length
         ? sc.reliability.map((bin) => `<div class="rel-row">
@@ -2515,13 +3437,13 @@ function renderScorecardMarkup() {
                 <span class="rel-num">${fmtDecimal(bin.observed_pct, 0)}% observed</span>
                 <small>n=${fmtInt(bin.rows)}</small>
             </div>`).join('')
-        : `<p class="table-sub">${sc.brier_rows ? 'Too few graded hours to draw a curve yet.' : 'No severe probability has been graded yet.'}</p>`;
+        : `<div class="ledger-empty"><strong>No reliability bins yet.</strong><p>${sc.brier_rows ? 'Too few graded hours to draw a curve.' : 'No severe-day probability has been graded in this window.'}</p></div>`;
 
     const drift = sc.drift || null;
-    const driftRows = drift && drift.available && (drift.vars || []).length
-        ? `<div class="table-scroll">
+    const driftBlock = drift && drift.available && (drift.vars || []).length
+        ? `<div class="table-scroll" tabindex="0" role="region" aria-label="Live input drift">
                 <table>
-                    <thead><tr><th>Measure</th><th class="num">Live mean</th><th class="num">Train mean</th><th class="num">z</th><th>Where</th></tr></thead>
+                    <thead><tr><th>Measure</th><th class="num">Live</th><th class="num">Train</th><th class="num">z</th><th>Range</th></tr></thead>
                     <tbody>${drift.vars.map((v) => `<tr>
                         <td>${esc(v.label)}</td>
                         <td class="num">${fmtDecimal(v.live_mean, 1)}</td>
@@ -2531,46 +3453,44 @@ function renderScorecardMarkup() {
                     </tr>`).join('')}</tbody>
                 </table>
             </div>`
-        : '';
+        : `<div class="ledger-empty"><strong>Drift check is warming up.</strong><p>${esc((drift && drift.note) || 'Waiting for enough live hours.')} Drift compares live distributions with the 2017–2023 training set; only measured hours count.</p></div>`;
 
-    return `<div class="table-grid">
-        <div class="table-block">
-            <h3>Forecast scorecard</h3>
-            <p class="table-sub">Live forecasts issued in the last ${fmtInt(sc.window_days)} days and graded against the saved sensor hours that followed. Skill is error reduction against holding the issue-hour reading flat.</p>
-            <div class="scorecard-head">
-                <span>Graded rows <b>${fmtInt(sc.scored)}</b></span>
-                <span>Awaiting their hour <b>${fmtInt(sc.pending)}</b></span>
-                <span>Passed with no reading <b>${fmtInt(sc.missing)}</b></span>
-                <span>80% coverage <b>${coverage}</b></span>
-                <span>Severe Brier <b>${brier}</b></span>
+    return `<section class="research-section" aria-labelledby="ledger-head">
+        ${head}
+        ${stats}
+        ${empty}
+        ${table}
+        ${empty ? '' : missingNote}
+        <div class="report-split">
+            <div class="report-half">
+                <h4>Severe-probability reliability</h4>
+                <p class="table-sub">Bars are the predicted chance of AQI above 400 within 24 hours; ticks are what happened. Brier score ${brier}${sc.brier_rows ? ` over ${fmtInt(sc.brier_rows)} graded rows` : ''}; lower is better.</p>
+                ${reliability}
             </div>
-            ${table}
-            ${sc.missing ? `<p class="scorecard-gap">${fmtInt(sc.missing)} forecast hour${sc.missing === 1 ? '' : 's'} passed without a saved reading - the feed or the server was down - so ${sc.missing === 1 ? 'it is' : 'they are'} excluded from these errors rather than scored against a guess.</p>` : ''}
+            <div class="report-half">
+                <h4>Input drift</h4>
+                <p class="table-sub">Live feature means against the training distribution, with a standardised difference. |z| above 2 is a warning, not a failure.</p>
+                ${driftBlock}
+            </div>
         </div>
-        <div class="table-block">
-            <h3>Severe-probability reliability</h3>
-            <p class="table-sub">The bar is what the model predicted; the tick is what happened. A calibrated model keeps them together.</p>
-            ${reliability}
-        </div>
-        <div class="table-block wide">
-            <h3>Live conditions vs training</h3>
-            <p class="table-sub">${drift && drift.available ? `Last ${fmtInt(drift.window_days)} days of live readings (${fmtInt(drift.hours)} hours) against the 2017–2023 training set.` : esc((drift && drift.note) || 'Waiting for enough live hours.')}</p>
-            ${driftRows}
-        </div>
-    </div>`;
+    </section>`;
 }
 
 async function loadScorecard() {
+    state.scorecardStatus = 'loading';
+    updateEvidenceStatus();
     try {
         const response = await fetch('/api/scorecard?days=7', { cache: 'no-store' });
-        if (!response.ok) return;
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         state.scorecard = await response.json();
-        if (state.meta) renderEvidence(state.meta);
+        state.scorecardStatus = 'ready';
     } catch (error) {
-        /* The evidence section keeps its historical tables. */
+        state.scorecard = null;
+        state.scorecardStatus = 'error';
     }
+    updateEvidenceStatus();
+    if (state.meta) renderEvidence(state.meta);
 }
-
 
 function renderEvidence(meta) {
     if (!meta) return;
@@ -2582,7 +3502,7 @@ function renderEvidence(meta) {
     const rc = meta.row_counts || {};
     const lv = meta.library_versions || {};
     const cal = meta.val_calibration || meta.val_2022_calibration || {};
-    const evalLabel = meta.eval_label || '2023 test';
+    const evalLabel = meta.eval_label || '2023 holdout';
     const valLabel = meta.val_label || '2022 validation';
     const evalSplit = meta.eval_split || '2023 Test';
 
@@ -2592,6 +3512,7 @@ function renderEvidence(meta) {
     const coverage = cal.test_empirical_coverage_pct ?? cal.test_2023_empirical_coverage_pct;
     const recall = dedicated ? dedicated['Recall (Sensitivity)'] : null;
     const precision = dedicated ? dedicated.Precision : null;
+    const threshold = cal.severe_prob_threshold;
 
     const statCard = (label, value, unit, note) => `<div class="stat">
         <span class="stat-label">${label}</span>
@@ -2648,58 +3569,130 @@ function renderEvidence(meta) {
     const valTotal = fmtInt(rc.val_total ?? rc.val_2022_total);
     const testReal = fmtInt(rc.test_real ?? rc.test_2023_real);
     const testTotal = fmtInt(rc.test_total ?? rc.test_2023_total);
-    const splitLine = meta.split ? `<p><b>Split.</b> ${esc(meta.split.train)} · ${esc(meta.split.val)} · ${esc(meta.split.test)}. A ${fmtInt(meta.split.purge_hours)}-hour purge separates adjacent slices.</p>` : '';
+    const featureCount = Array.isArray(meta.feature_cols) ? meta.feature_cols.length : 17;
+    const splitLine = meta.split
+        ? `<p><b>Split.</b> ${esc(meta.split.train)} · ${esc(meta.split.val)} · ${esc(meta.split.test)}. A ${fmtInt(meta.split.purge_hours)}-hour purge separates adjacent slices.</p>`
+        : '<p><b>Split.</b> Chronological: 2017–2021 train · 2022 validation · 2023 holdout. The holdout was not used for fitting.</p>';
     const brierCal = cal.brier_score_test_calibrated ?? cal.brier_score_2023_calibrated;
     const brierRaw = cal.brier_score_test_uncalibrated ?? cal.brier_score_2023_uncalibrated;
     const hasBrierCal = brierCal !== null && brierCal !== undefined;
     const probabilityNote = hasBrierCal
         ? `Brier score ${fmtDecimal(brierCal, 3)} calibrated vs ${fmtDecimal(brierRaw, 3)} uncalibrated on ${esc(evalLabel)}; lower is better.`
         : `Severe-day probability stayed uncalibrated because ${esc(valLabel)} had too few severe hours; raw Brier score ${fmtDecimal(brierRaw, 3)} on ${esc(evalLabel)}.`;
+    const coverageText = coverage === null || coverage === undefined ? '—' : fmtDecimal(coverage, 1) + '%';
+    const mae24 = xgb ? fmtDecimal(xgb['MAE (Real Only)'], 1) : '—';
+    const skill24 = h24 ? h24['Skill vs Persistence'] : '—';
 
     $('evidence-body').innerHTML = `
-        <div class="stat-row">
-            ${statCard('+24h MAE', fmtDecimal(xgb ? xgb['MAE (Real Only)'] : null, 1), 'AQI', `${evalLabel}, real readings only`)}
-            ${statCard('80% interval coverage', fmtDecimal(coverage, 1), '%', `Empirical on ${evalLabel}; target is 80%`)}
-            ${statCard('Severe recall', pctText(recall), '%', `At ${pctText(precision)}% precision · ${evalLabel}`)}
-            ${statCard('+24h skill', esc(h24 ? h24['Skill vs Persistence'] : '—'), '', 'RMSE gain vs 24h persistence')}
+        <div class="research-banner">
+            <span class="research-flag">Research record · production bundle</span>
+            <p><b>Live ledger:</b> issued forecasts graded against saved DPCC sensor hours. <b>Historical tables:</b> the shipped model on the 2022 validation and 2023 holdout. <b>Neither:</b> this morning’s conditions, or a city-wide average.</p>
+            <span class="research-window">Trained ${esc(String(meta.trained_at_utc || '').slice(0, 10))} · ${rowsTotal} hourly rows · dataset SHA-256 ${esc(String(meta.dataset_sha256 || '').slice(0, 16))}…</span>
         </div>
 
-        ${renderScorecardMarkup()}
+        <div class="stat-row">
+            ${statCard('+24h MAE', mae24, 'AQI', `${evalLabel}, real readings only`)}
+            ${statCard('80% interval coverage', fmtDecimal(coverage, 1), '%', `Empirical on ${evalLabel}; target is 80%`)}
+            ${statCard('Severe recall', pctText(recall), '%', `At ${pctText(precision)}% precision · ${evalLabel}`)}
+            ${statCard('+24h skill', esc(skill24), '', 'RMSE gain vs 24h persistence')}
+        </div>
 
-        <div class="table-grid">
+        <section class="research-section" aria-labelledby="window-head">
+            <div class="research-head">
+                <h3 id="window-head">Input window composition</h3>
+                <p>${state.data && state.data.forecast_available === false
+                    ? 'The window the next forecast will be built from. Missing hours are completed from CAMS, but only measured hours can later grade a forecast.'
+                    : 'What the current forecast was built from. Missing hours are completed from CAMS, but only measured hours can later grade a forecast.'}</p>
+            </div>
+            ${renderWindowAudit()}
+        </section>
+
+        ${renderLedgerMarkup()}
+
+        <section class="research-section" aria-labelledby="card-head">
+            <div class="research-head">
+                <h3 id="card-head">Model card</h3>
+                <p>The shipped bundle, its training sample, and the two uncertainty products that accompany the point forecast.</p>
+            </div>
+            <dl class="spec-grid">
+                <div>
+                    <dt>Shipped model</dt>
+                    <dd>XGBoost · 6 horizons<span class="spec-note">One model per horizon from +4h to +24h. The +24h forecast is the headline.</span></dd>
+                </div>
+                <div>
+                    <dt>Training sample</dt>
+                    <dd>${trainRows} hourly rows<span class="spec-note">2017–2021 training data after feature construction. ${rowsTotal} rows exist across all splits.</span></dd>
+                </div>
+                <div>
+                    <dt>Inputs</dt>
+                    <dd>${fmtInt(featureCount)} features<span class="spec-note">49-hour lags and rolling statistics, weather, and calendar terms at a single station.</span></dd>
+                </div>
+                <div>
+                    <dt>Point accuracy</dt>
+                    <dd>MAE ${mae24} AQI<span class="spec-note">+24h on real ${esc(evalLabel)} readings. Skill vs persistence: ${esc(skill24)}.</span></dd>
+                </div>
+                <div>
+                    <dt>80% interval</dt>
+                    <dd>${fmtDecimal(cal.q10_err, 1)} to +${fmtDecimal(cal.q90_err, 1)} AQI<span class="spec-note">2022 validation residuals. Empirical coverage on ${esc(evalLabel)}: ${coverageText}.</span></dd>
+                </div>
+                <div>
+                    <dt>Severe-day classifier</dt>
+                    <dd>Recall ${pctText(recall)}%<span class="spec-note">AQI above 400, tuned for recall at ${pctText(precision)}% precision${threshold !== undefined && threshold !== null ? ` and a ${fmtDecimal(threshold, 2)} threshold` : ''}. Expect false alarms.</span></dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="research-section" aria-labelledby="validation-head">
+            <div class="research-head">
+                <h3 id="validation-head">Validation record</h3>
+                <p>Historical evidence from the ${esc(evalLabel)}. This is not a live score; live grading is the ledger above. <span class="table-hint">Swipe wide tables sideways.</span></p>
+            </div>
             <div class="table-block">
                 <h3>Forecast skill by horizon</h3>
                 <p class="table-sub">${esc(evalLabel)}, real readings only. Lower error is better.</p>
-                <div class="table-scroll">
+                <div class="table-scroll" tabindex="0" role="region" aria-label="Validation skill by horizon">
                     <table>
                         <thead><tr><th>Horizon</th><th class="num">MAE</th><th class="num">XGB RMSE</th><th class="num">Persistence</th><th class="num">Skill</th></tr></thead>
                         <tbody>${horizonRows}</tbody>
                     </table>
                 </div>
             </div>
-
-            <div class="table-block">
+            <div class="table-block narrow">
                 <h3>Model comparison</h3>
                 <p class="table-sub">+24h forecast, ${esc(evalLabel)}. The highlighted row is the shipped model.</p>
-                <div class="table-scroll">
+                <div class="table-scroll" tabindex="0" role="region" aria-label="Model comparison">
                     <table>
                         <thead><tr><th>Model</th><th class="num">RMSE all</th><th class="num">RMSE real</th><th class="num">MAE real</th><th class="num">R²</th><th class="num">Seed SD</th></tr></thead>
                         <tbody>${regressionRows}</tbody>
                     </table>
                 </div>
             </div>
-
-            <div class="table-block wide">
+            <div class="table-block">
                 <h3>Severe-day classifier</h3>
-                <p class="table-sub">AQI above 400. Precision and recall trade off; the dedicated classifier is tuned for recall, so expect false alarms.</p>
-                <div class="table-scroll">
+                <p class="table-sub">AQI above 400. Recall is prioritised, so false alarms are part of the design.</p>
+                <div class="table-scroll" tabindex="0" role="region" aria-label="Severe-day classifier">
                     <table>
                         <thead><tr><th>Method</th><th>Split</th><th class="num">Precision %</th><th class="num">Recall %</th><th class="num">F1</th><th class="num">Missed hours</th><th class="num">False alarms</th></tr></thead>
                         <tbody>${severeRows}</tbody>
                     </table>
                 </div>
             </div>
-        </div>
+        </section>
+
+        <section class="research-section" aria-labelledby="definitions-head">
+            <div class="research-head">
+                <h3 id="definitions-head">Metric definitions</h3>
+                <p>Plain definitions so the numbers can be checked without reading the code.</p>
+            </div>
+            <dl class="method-grid">
+                <div><dt>MAE</dt><dd>Mean absolute error in AQI points. The typical size of a miss, without direction.</dd></div>
+                <div><dt>RMSE</dt><dd>Root mean squared error. Penalises large misses more than MAE, so it is the harder test.</dd></div>
+                <div><dt>Skill vs persistence</dt><dd>Percent RMSE reduction against holding the issue-hour reading flat for the whole horizon. Positive beats persistence.</dd></div>
+                <div><dt>80% interval coverage</dt><dd>Share of measured hours that fall inside the calibrated interval. The target is 80% on a large, unseen sample.</dd></div>
+                <div><dt>Brier score</dt><dd>Mean squared error of the severe-day probability. Lower is better; 0 is perfect and 0.25 is always guessing 50%.</dd></div>
+                <div><dt>Drift z</dt><dd>Standardised difference between a live feature mean and its training mean. |z| above 2 is a warning that inputs moved.</dd></div>
+            </dl>
+        </section>
 
         <div class="provenance">
             <p><b>Operating record.</b> Trained ${esc(meta.trained_at_utc)} · ${rowsTotal} hourly rows · train ${trainRows} · ${esc(valLabel)}: ${valReal} real of ${valTotal} · ${esc(evalLabel)}: ${testReal} real of ${testTotal}.</p>
@@ -2715,9 +3708,11 @@ function renderEvidence(meta) {
             <li>Single station: this is DPCC Anand Vihar, not a city-wide average.</li>
             <li>AQI is capped at 500; uncapped model output is noted where it matters.</li>
             <li>Live WAQI readings can differ from the official CPCB bulletin.</li>
-            <li>Replay windows are recorded 2023 data, never today's air.</li>
+            <li>Replay windows are recorded 2023 data, never today’s air.</li>
+            <li>CAMS reanalysis completes missing input hours and is never counted as measured evidence or used to grade a forecast.</li>
+            <li>The production weights were trained through 2023. A retrain candidate needs at least 720 saved live hours — about 30 days — and must beat persistence on a chronological holdout before promotion.</li>
             <li>Not medical advice; follow a clinician for personal decisions.</li>
-            <li>Validated on ${esc(meta.validation_period || '2022–2023')}, not on this morning's conditions.</li>
+            <li>Validated on ${esc(meta.validation_period || '2022–2023')}, not on this morning’s conditions.</li>
         </ul>`;
 }
 
@@ -2739,6 +3734,11 @@ function renderFailure(message) {
     $('failure-detail').textContent = text;
     $('switch-replay').hidden = state.mode === 'archive_2023';
     setSource('error', 'Board offline', missing ? 'Replay data is missing' : 'No forecast on the board', text.slice(0, 150));
+    if (!state.meta) {
+        state.scorecardStatus = 'error';
+        updateEvidenceStatus();
+        $('evidence-body').innerHTML = '<div class="ledger-empty"><strong>Evidence is unavailable while the board is offline.</strong><p>The model card, validation record and live ledger all need a server response. Retry when the server is back.</p></div>';
+    }
 }
 
 async function load(quiet) {
