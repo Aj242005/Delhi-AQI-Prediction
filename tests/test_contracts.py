@@ -373,3 +373,18 @@ class SeededWindow(unittest.TestCase):
         ground_feed.refresh_seed(path, now=pd.Timestamp("2026-11-18 01:30"), air_fetch=air, weather_fetch=wx)
         ground_feed.refresh_seed(path, now=pd.Timestamp("2026-11-18 04:00"), air_fetch=air, weather_fetch=wx)
         self.assertEqual(calls["n"], 2)
+
+    def test_unwritable_seed_cache_still_forecasts(self):
+        blocker = os.path.join(self.tmp, "blocker")
+        with open(blocker, "w", encoding="utf-8") as f:
+            f.write("not a directory")
+        path = os.path.join(blocker, "seed.csv")   # parent is a file -> OSError on save
+
+        def wx():
+            return self.seed()[["Datetime"]].assign(Temp_C=18.0, Humidity=70.0, Wind_Speed=3.0)
+
+        air = lambda: self.seed()[["Datetime", "seed_aqi"]].assign(seed_pm25=90.0, seed_pm10=300.0)
+        df = ground_feed.refresh_seed(path, now=pd.Timestamp("2026-11-18 01:30"),
+                                      air_fetch=air, weather_fetch=wx)
+        self.assertEqual(len(df), 49)
+        self.assertFalse(os.path.exists(path))

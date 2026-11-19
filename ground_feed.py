@@ -278,7 +278,10 @@ def refresh_seed(path=None, force=False, now=None, max_age_minutes=SEED_MAX_AGE_
         merged.to_csv(tmp, index=False)
         os.replace(tmp, path)
     except OSError as exc:
-        logger.warning("Could not save the reanalysis seed: %s", exc)
+        # A read-only or ephemeral host still gets to forecast: don't throw the
+        # hours we just fetched away because the cache could not be written.
+        logger.warning("Could not save the reanalysis seed: %s - serving this fetch", exc)
+        return merged.reset_index(drop=True)
     return load_seed(path)
 
 
