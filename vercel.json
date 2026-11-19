@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://anand-vihar-aqi-api.onrender.com/api/$1"
+    },
+    {
+      "source": "/health",
+      "destination": "https://anand-vihar-aqi-api.onrender.com/health"
+    }
+  ]
+}
