@@ -62,7 +62,7 @@ class ScorecardLog(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
         self.path = os.path.join(self.dir, "forecast_log.csv")
-        base = pd.Timestamp("2026-11-17T00:00:00")
+        base = pd.Timestamp.now().floor("h")
         self.wave = [
             {"horizon": f"+{h}h", "iso": (base + pd.Timedelta(hours=h)).isoformat(), "aqi": 300 + h}
             for h in (4, 8, 12, 16, 20, 24)
@@ -176,7 +176,7 @@ class ForecastLogHygiene(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
         self.path = os.path.join(self.dir, "forecast_log.csv")
-        base = pd.Timestamp("2026-11-17T00:00:00")
+        base = pd.Timestamp.now().floor("h")
         self.wave = [
             {"horizon": f"+{h}h", "iso": (base + pd.Timedelta(hours=h)).isoformat(), "aqi": 300 + h}
             for h in (4, 8, 12, 16, 20, 24)
